@@ -82,7 +82,7 @@ async def llm_response(
     )
     response.content_response = content_response
     response.llm_response = get_llm_rag_answer(
-        user_query_refined.query_text, content_response[0].response_text
+        user_query_refined.query_text, content_response[0].retrieved_content_text
     )
     response.debug_info = {
         "paraphrase": user_query_refined.query_text,

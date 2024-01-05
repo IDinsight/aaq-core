@@ -33,7 +33,8 @@ class UserQuerySearchResult(BaseModel):
     Pydantic model for each individual search result
     """
 
-    response_text: str
+    retrieved_content_id: str
+    retrieved_content_text: str
     score: float
 
     model_config = ConfigDict(from_attributes=True)

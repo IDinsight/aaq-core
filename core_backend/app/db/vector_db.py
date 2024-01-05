@@ -73,7 +73,8 @@ def get_similar_content(
             raise ValueError("Payload is empty. No content text found.")
         else:
             results_dict[i] = UserQuerySearchResult(
-                response_text=r.payload.get("content_text", ""),
+                retrieved_content_id=r.payload.get("content_id", ""),
+                retrieved_content_text=r.payload.get("content_text", ""),
                 score=r.score,
             )
 
