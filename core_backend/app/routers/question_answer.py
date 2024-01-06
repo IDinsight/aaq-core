@@ -17,6 +17,7 @@ from ..db.db_models import (
 )
 from ..db.engine import get_async_session
 from ..db.vector_db import get_qdrant_client, get_similar_content
+from ..llm_call.check_output import check_align_score
 from ..llm_call.llm_rag import get_llm_rag_answer
 from ..llm_call.parse_input import (
     classify_safety,
@@ -57,10 +58,11 @@ async def llm_response(
     return response
 
 
-@classify_safety
-@translate_question
+@check_align_score
 @identify_language
+@translate_question
 @paraphrase_question
+@classify_safety
 async def get_llm_answer(
     user_query_refined: UserQueryRefined,
     response: UserQueryResponse,
@@ -131,6 +133,7 @@ async def embeddings_search(
 
 
 @translate_question
+@identify_language
 @paraphrase_question
 async def get_semantic_matches(
     user_query_refined: UserQueryRefined,

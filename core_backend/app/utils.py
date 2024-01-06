@@ -1,6 +1,8 @@
 import logging
 from logging import Logger
 
+import aiohttp
+
 from .configs.app_config import LOG_LEVEL
 
 
@@ -47,3 +49,32 @@ def setup_logger(
     logger.addHandler(handler)
 
     return logger
+
+
+class HttpClient:
+    """
+    HTTP client for call other endpoints
+    """
+
+    session: aiohttp.ClientSession | None = None
+
+    def start(self) -> None:
+        """
+        Create AIOHTTP session
+        """
+        self.session = aiohttp.ClientSession()
+
+    async def stop(self) -> None:
+        """
+        Close AIOHTTP session
+        """
+        if self.session is not None:
+            await self.session.close()
+        self.session = None
+
+    def __call__(self) -> aiohttp.ClientSession:
+        """
+        Get AIOHTTP session
+        """
+        assert self.session is not None
+        return self.session

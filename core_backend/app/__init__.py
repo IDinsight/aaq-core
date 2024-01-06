@@ -8,12 +8,18 @@ from prometheus_client import (
     multiprocess,
 )
 
-from .configs.app_config import DOMAIN, QDRANT_COLLECTION_NAME, QDRANT_VECTOR_SIZE
+from .configs.app_config import (
+    ALIGN_SCORE_METHOD,
+    DOMAIN,
+    QDRANT_COLLECTION_NAME,
+    QDRANT_VECTOR_SIZE,
+)
 from .prometheus_middleware import PrometheusMiddleware
 from .routers import admin, auth, manage_content, question_answer, whatsapp_qa
-from .utils import setup_logger
+from .utils import HttpClient, setup_logger
 
 logger = setup_logger()
+http_client = HttpClient()
 
 
 def create_metrics_app() -> Callable:
@@ -65,5 +71,8 @@ def create_app() -> FastAPI:
         }:
             create_qdrant_collection(QDRANT_COLLECTION_NAME, QDRANT_VECTOR_SIZE)
             logger.info(f"Created collection {QDRANT_COLLECTION_NAME}")
+
+        if ALIGN_SCORE_METHOD == "alignScore":
+            http_client.start()
 
     return app
