@@ -4,8 +4,8 @@ on:
   push:
     branches:
       - "**"
-    paths:
-      - optional_components/alignScore/**
+    # paths:
+    #  - optional_components/alignScore/**
 permissions:
   id-token: write # This is required for requesting the JWT
   contents: read # This is required for actions/checkout
@@ -39,7 +39,7 @@ jobs:
           REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
           REGISTRY_ALIAS: j3r7b4k0
           REPOSITORY: alignscore-base
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_TAG: latest
         with:
           context: optional_components/alignScore/
           platforms: linux/amd64,linux/arm64
