@@ -78,3 +78,6 @@ class HttpClient:
         """
         assert self.session is not None
         return self.session
+
+
+http_client = HttpClient()

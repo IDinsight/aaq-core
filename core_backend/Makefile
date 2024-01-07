@@ -67,7 +67,7 @@ setup-alignscore-container:
 	docker run --name testalignscore \
 		-p 5002:5001 \
 		-d alignscore
-	@sleep 5
+	@sleep 10
 
 stop-alignscore-container:
 	@docker stop testalignscore

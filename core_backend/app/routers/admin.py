@@ -8,9 +8,9 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .. import http_client
 from ..configs.app_config import ALIGN_SCORE_API, ALIGN_SCORE_METHOD
 from ..db.engine import get_async_session
+from ..utils import http_client
 
 router = APIRouter()
 

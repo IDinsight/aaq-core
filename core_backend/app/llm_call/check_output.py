@@ -6,14 +6,13 @@ from typing import Any, Callable, TypedDict
 
 import aiohttp
 
-from .. import http_client
 from ..configs.app_config import (
     ALIGN_SCORE_API,
     ALIGN_SCORE_METHOD,
     ALIGN_SCORE_THRESHOLD,
 )
 from ..schemas import ResultState, UserQueryRefined, UserQueryResponse
-from ..utils import setup_logger
+from ..utils import http_client, setup_logger
 
 logger = setup_logger("OUTPUT RAILS")
 

@@ -16,10 +16,9 @@ from .configs.app_config import (
 )
 from .prometheus_middleware import PrometheusMiddleware
 from .routers import admin, auth, manage_content, question_answer, whatsapp_qa
-from .utils import HttpClient, setup_logger
+from .utils import http_client, setup_logger
 
 logger = setup_logger()
-http_client = HttpClient()
 
 
 def create_metrics_app() -> Callable:
