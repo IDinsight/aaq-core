@@ -5,6 +5,8 @@ on:
       - "**"
     paths-ignore:
       - "**/*.md"
+    paths:
+      - "**.py"
 env:
   POSTGRES_PASSWORD: postgres-test-pw
   POSTGRES_USER: postgres-test-user
