@@ -36,6 +36,10 @@ jobs:
         image: public.ecr.aws/j3r7b4k0/alignscore-base:latest
         ports:
           - 5001:5001
+        options: >-
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: install dependencies
         run: apt-get update && apt-get install -y lsb-release && apt-get clean all
