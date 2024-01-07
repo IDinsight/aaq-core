@@ -28,7 +28,7 @@ async def healthcheck(
             status_code=500, content={"message": f"Failed database connection: {e}"}
         )
 
-    if ALIGN_SCORE_METHOD == "alignScore":
+    if ALIGN_SCORE_METHOD == "AlignScore":
         url = urlparse(ALIGN_SCORE_API)
         healthcheck_url = f"{url.scheme}://{url.netloc}/healthcheck"
         http_client = get_http_client()
