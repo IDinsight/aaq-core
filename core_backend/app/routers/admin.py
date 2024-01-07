@@ -1,6 +1,5 @@
 from urllib.parse import urlparse
 
-import aiohttp
 from aiohttp.client_exceptions import ClientConnectorError
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
@@ -10,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..configs.app_config import ALIGN_SCORE_API, ALIGN_SCORE_METHOD
 from ..db.engine import get_async_session
-from ..utils import http_client
+from ..utils import get_http_client
 
 router = APIRouter()
 
@@ -18,7 +17,6 @@ router = APIRouter()
 @router.get("/healthcheck")
 async def healthcheck(
     db_session: AsyncSession = Depends(get_async_session),
-    http_client: aiohttp.ClientSession = Depends(http_client),
 ) -> JSONResponse:
     """
     Healthcheck endpoint - checks connection to Db
@@ -33,6 +31,7 @@ async def healthcheck(
     if ALIGN_SCORE_METHOD == "alignScore":
         url = urlparse(ALIGN_SCORE_API)
         healthcheck_url = f"{url.scheme}://{url.netloc}/healthcheck"
+        http_client = get_http_client()
         try:
             resp = await http_client.get(healthcheck_url)
         except ClientConnectorError as e:

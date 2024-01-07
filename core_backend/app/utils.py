@@ -80,4 +80,16 @@ class HttpClient:
         return self.session
 
 
-http_client = HttpClient()
+_HTTP_CLIENT: aiohttp.ClientSession | None = None
+
+
+def get_http_client() -> aiohttp.ClientSession:
+    """
+    Get HTTP client
+    """
+    global _HTTP_CLIENT
+    if _HTTP_CLIENT is None or _HTTP_CLIENT.closed:
+        http_client = HttpClient()
+        http_client.start()
+        _HTTP_CLIENT = http_client()
+    return _HTTP_CLIENT

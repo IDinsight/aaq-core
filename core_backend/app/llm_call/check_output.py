@@ -4,15 +4,13 @@ These are functions to check the LLM response
 from functools import wraps
 from typing import Any, Callable, TypedDict
 
-import aiohttp
-
 from ..configs.app_config import (
     ALIGN_SCORE_API,
     ALIGN_SCORE_METHOD,
     ALIGN_SCORE_THRESHOLD,
 )
 from ..schemas import ResultState, UserQueryRefined, UserQueryResponse
-from ..utils import http_client, setup_logger
+from ..utils import get_http_client, setup_logger
 
 logger = setup_logger("OUTPUT RAILS")
 
@@ -81,12 +79,18 @@ async def _check_align_score(llm_response: UserQueryResponse) -> UserQueryRespon
         if align_score < float(ALIGN_SCORE_THRESHOLD):
             llm_response.llm_response = STANDARD_FAILURE_MESSAGE
             llm_response.state = ResultState.ERROR
-        else:
-            llm_response.debug_info["factual_consistency"] = {
-                "method": "AlignScore",
-                "score": align_score,
-            }
 
+        llm_response.debug_info["factual_consistency"] = {
+            "method": "AlignScore",
+            "score": align_score,
+        }
+    else:
+        logger.warning(
+            (
+                "No LLM response found in the LLM response but "
+                "`check_align_score` was called"
+            )
+        )
     return llm_response
 
 
@@ -94,20 +98,18 @@ async def _get_alignScore_score(api_url: str, payload: Payload) -> float:
     """
     Get the alignment score from the AlignScore API
     """
-    resp = await http_client().post(api_url, json=payload)
-    async with aiohttp.ClientSession() as session:
-        async with session.post(api_url, json=payload) as resp:
-            if resp.status != 200:
-                logger.error(f"AlignScore API request failed with status {resp.status}")
-                raise RuntimeError(
-                    f"AlignScore API request failed with status {resp.status}"
-                )
+    async with get_http_client().post(api_url, json=payload) as resp:
+        if resp.status != 200:
+            logger.error(f"AlignScore API request failed with status {resp.status}")
+            raise RuntimeError(
+                f"AlignScore API request failed with status {resp.status}"
+            )
 
-            result = await resp.json()
-            logger.info(f"AlignScore result: {result}")
-            result = result["alignscore"]
+        result = await resp.json()
+    logger.info(f"AlignScore result: {result}")
+    result = result["alignscore"]
 
-            return result
+    return result
 
 
 def _build_evidence(llm_response: UserQueryResponse) -> str:
