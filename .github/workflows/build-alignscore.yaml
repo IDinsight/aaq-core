@@ -27,7 +27,7 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/github_actions_dev
           role-session-name: github-actions
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: us-east-1 # ${{ vars.AWS_REGION }}
       - name: Login to Amazon ECR
         id: login-ecr-public
         uses: aws-actions/amazon-ecr-login@v2
