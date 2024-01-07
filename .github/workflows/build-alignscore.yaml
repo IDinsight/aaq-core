@@ -44,4 +44,4 @@ jobs:
           context: optional_components/alignScore/
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: $REGISTRY/$REGISTRY_ALIAS/$REPOSITORY:$IMAGE_TAG
+          tags: ${{ env.REGISTRY }}/${{ env.$REGISTRY_ALIAS }}/${{ env.REPOSITORY:$IMAGE_TAG }}
