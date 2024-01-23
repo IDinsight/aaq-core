@@ -2,10 +2,29 @@
 import React, { useState } from "react";
 import { PencilIcon, TrashIcon } from "@heroicons/react/20/solid";
 
-export type Content = {
-  content_id: string;
+export enum Language {
+  ENGLISH = "ENGLISH",
+  HINDI = "HINDI",
+}
+
+export type ContentDataInEdit = {
+  content_title: string | null;
+  content_text: string | null;
+  content_language: Language | null;
+};
+
+export type ContentData = {
   content_title: string;
   content_text: string;
+  content_language: Language;
+};
+
+export type ContentInEdit = ContentDataInEdit & {
+  content_id: string;
+};
+
+export type Content = ContentData & {
+  content_id: string;
 };
 
 interface ContentCardProps {
@@ -65,6 +84,13 @@ export const ContentCard: React.FC<ContentCardProps> = ({
         }`}
       >
         {content.content_text}
+      </p>
+      <p
+        className={`mb-3 font-light overflow-auto whitespace-pre-line text-sm text-gray-500 dark:text-gray-600 absolute bottom-0 float-left ${
+          isExpanded ? "line-clamp-[12] py-3" : "line-clamp-4"
+        }`}
+      >
+        {content.content_language}
       </p>
       {isExpanded ? (
         <p className="mb-3 text-xs font-light text-gray-800 dark:text-gray-600 absolute p-3 bottom-0 right-2 float-right">
