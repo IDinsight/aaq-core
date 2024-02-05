@@ -40,6 +40,17 @@ jobs:
           role-duration-seconds: 7200
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Create CloudWatch log stream
+        run: |
+          timestamp=$(date +%Y-%m-%d-%H-%M-%S)
+          log_stream="${timestamp}-${{ github.run_id }}-${{ github.sha }}"
+          aws logs create-log-stream --log-group-name "${{ vars.LOG_GROUP }}" --log-stream-name "$log_stream"
+          echo "LOG_STREAM=$log_stream" >> $GITHUB_ENV
+          echo "LOG_URL=https://${{ secrets.AWS_REGION }}.console.aws.amazon.com/cloudwatch/home?region=${{ secrets.AWS_REGION }}#logsV2:log-groups/log-group/${{ vars.LOG_GROUP }}/log-events/$log_stream" >> $GITHUB_ENV
+
+      - name: AWS CloudWatch log stream link
+        run: echo "Find the full log of this workflow run at ${{ env.LOG_URL }}"
+
       - name: Install Python dependencies
         run: |
           python -m pip install -r core_backend/requirements.txt

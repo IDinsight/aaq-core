@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import uuid
 from datetime import datetime
@@ -11,6 +12,7 @@ from fastapi.testclient import TestClient
 from litellm import embedding
 from qdrant_client import QdrantClient
 from qdrant_client.models import PointStruct
+from watchtower import CloudWatchLogHandler
 
 from core_backend.app.configs.app_config import (
     EMBEDDING_MODEL,
@@ -25,7 +27,31 @@ from core_backend.app.db.vector_db import (
 from core_backend.app.schemas import UserQueryBase
 from core_backend.app.utils import setup_logger
 
-logger = setup_logger()
+
+def get_github_run_url() -> str:
+    """Get the URL for the current Github run"""
+    github_url = os.environ.get("GITHUB_SERVER_URL", "")
+    github_repo = os.environ.get("GITHUB_REPOSITORY", "")
+    github_run_id = os.environ.get("GITHUB_RUN_ID", "")
+    return f"{github_url}/{github_repo}/actions/runs/{github_run_id}"
+
+
+def setup_validation_logger(aws_profile: Union[str, None]) -> logging.Logger:
+    logger = setup_logger()
+    logger.setLevel(logging.INFO)
+
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        log_group = os.getenv("LOG_GROUP")
+        log_stream = os.getenv("LOG_STREAM")
+
+        session = boto3.setup_default_session(profile_name=aws_profile)
+
+        handler = CloudWatchLogHandler(
+            boto3_session=session, log_group=log_group, stream_name=log_stream
+        )
+        logger.addHandler(handler)
+
+    return logger
 
 
 class TestRetrievalPerformance:
@@ -43,6 +69,12 @@ class TestRetrievalPerformance:
         aws_profile: Union[str, None],
     ) -> None:
         """Test retrieval performance of the system"""
+        self.logger = setup_validation_logger(aws_profile)
+
+        self.logger.info("Starting retrieval performance test...")
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            self.logger.info("Github Actions Workflow Run: " + get_github_run_url())
+
         content_df = self.prepare_content_data(
             content_data_path=content_data_path,
             content_data_label_col=content_data_label_col,
@@ -65,8 +97,10 @@ class TestRetrievalPerformance:
         accuracies = self.get_top_k_accuracies(val_df)
         retrieval_failure_rate = val_df["rank"].isna().mean()
 
-        logger.info(f"\nRetrieval failed on {retrieval_failure_rate:.1%} of queries.")
-        logger.info("\n" + self.format_accuracies(accuracies))
+        self.logger.info(
+            f"\nRetrieval failed on {retrieval_failure_rate:.1%} of queries."
+        )
+        self.logger.info("\n" + self.format_accuracies(accuracies))
 
         if notification_topic is not None:
             message_dict = self._generate_message(
@@ -112,7 +146,7 @@ class TestRetrievalPerformance:
         """Load content to qdrant collection"""
         # TODO: Update to use a batch upsert API once created
         n_content = content_dataframe.shape[0]
-        logger.info(f"Loading {n_content} content item to vector DB...")
+        self.logger.info(f"Loading {n_content} content item to vector DB...")
         if QDRANT_COLLECTION_NAME not in {
             collection.name
             for collection in vectordb_client.get_collections().collections
@@ -140,7 +174,7 @@ class TestRetrievalPerformance:
             collection_name=QDRANT_COLLECTION_NAME,
             points=points,
         )
-        logger.info(f"Completed loading {n_content} content items to vector DB.")
+        self.logger.info(f"Completed loading {n_content} content items to vector DB.")
 
     def generate_retrieval_results(
         self,
@@ -156,13 +190,13 @@ class TestRetrievalPerformance:
             storage_options=dict(profile=aws_profile),
         )
 
-        logger.info("Retrieving content for each validation query...")
+        self.logger.info("Retrieving content for each validation query...")
 
         df = asyncio.run(
             self.retrieve_results(df, client, validation_data_question_col)
         )
 
-        logger.info("Completed retrieving content for each validation query.")
+        self.logger.info("Completed retrieving content for each validation query.")
 
         def get_rank(row: pd.Series) -> Union[int, None]:
             """Get the rank of label in the retrieved content IDs"""
@@ -178,6 +212,7 @@ class TestRetrievalPerformance:
 
     async def call_embeddings_search(
         self,
+        query_id: Union[int, str],
         query_text: str,
         client: TestClient,
     ) -> List[str]:
@@ -187,7 +222,9 @@ class TestRetrievalPerformance:
         response = client.post("/embeddings-search", json=request_json, headers=headers)
 
         if response.status_code != 200:
-            logger.warning("Failed to retrieve content")
+            self.logger.warning(
+                f"Failed to retrieve content for query index {query_id}"
+            )
             content_titles = []
         else:
             retrieved = response.json()["content_response"]
@@ -204,8 +241,8 @@ class TestRetrievalPerformance:
     ) -> pd.DataFrame:
         """Asynchronously retrieve similar content for all queries in validation data"""
         tasks = [
-            self.call_embeddings_search(query, client)
-            for query in df[validation_data_question_col]
+            self.call_embeddings_search(_id, query, client)
+            for _id, query in df[validation_data_question_col].items()
         ]
         df["retrieved_content_titles"] = await asyncio.gather(*tasks)
         return df
@@ -246,6 +283,7 @@ class TestRetrievalPerformance:
         """Generate messages for validation results"""
         ist = tz.gettz("Asia/Kolkata")
         timestamp = datetime.now(tz=ist).strftime("%Y-%m-%d %H:%M:%S IST")
+        log_url = os.getenv("LOG_URL")
 
         message = (
             f"Content retrieval validation results\n"
@@ -261,7 +299,10 @@ class TestRetrievalPerformance:
             f"      • Label column: {content_data_label_col}\n"
             f"• Embedding model: {EMBEDDING_MODEL}\n"
             f"• Retrieval failure rate: {retrieval_failure_rate:.1%}\n"
-            f"• Top N accuracies:\n" + self.format_accuracies(accuracies)
+            f"• Top N accuracies:\n"
+            + self.format_accuracies(accuracies)
+            + "\n"
+            + f"\nView full log at {log_url}"
         )
 
         if os.environ.get("GITHUB_ACTIONS") == "true":
