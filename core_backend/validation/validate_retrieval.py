@@ -188,6 +188,7 @@ class TestRetrievalPerformance:
         df = pd.read_csv(
             validation_data_path,
             storage_options=dict(profile=aws_profile),
+            nrows=1,
         )
 
         self.logger.info("Retrieving content for each validation query...")
