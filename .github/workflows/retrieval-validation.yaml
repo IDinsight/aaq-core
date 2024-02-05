@@ -25,6 +25,13 @@ jobs:
       - name: Install dependencies
         run: apt-get update && apt-get install -y lsb-release && apt-get clean all
 
+      - name: Install AWS CLI
+        uses: unfor19/install-aws-cli-action@v1
+        with:
+          version: 2
+          verbose: false
+          arch: amd64
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -46,10 +53,12 @@ jobs:
           log_stream="${timestamp}-${{ github.run_id }}-${{ github.sha }}"
           aws logs create-log-stream --log-group-name "${{ vars.LOG_GROUP }}" --log-stream-name "$log_stream"
           echo "LOG_STREAM=$log_stream" >> $GITHUB_ENV
-          echo "LOG_URL=https://${{ secrets.AWS_REGION }}.console.aws.amazon.com/cloudwatch/home?region=${{ secrets.AWS_REGION }}#logsV2:log-groups/log-group/${{ vars.LOG_GROUP }}/log-events/$log_stream" >> $GITHUB_ENV
 
       - name: AWS CloudWatch log stream link
-        run: echo "Find the full log of this workflow run at ${{ env.LOG_URL }}"
+        run: |
+          log_url=$(python core_backend/validation/log_config.py)
+          echo "Find the full log of this workflow run at $log_url"
+          echo "LOG_URL=$log_url" >> $GITHUB_ENV
 
       - name: Install Python dependencies
         run: |
