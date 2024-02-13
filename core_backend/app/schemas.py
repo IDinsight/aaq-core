@@ -1,7 +1,7 @@
 import re
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Dict, Literal, Optional
+from typing import Annotated, Dict, List, Literal, Optional
 
 from pydantic import (
     BaseModel,
