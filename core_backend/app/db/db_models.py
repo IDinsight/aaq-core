@@ -683,6 +683,7 @@ async def get_similar_content(
         n_similar,
         asession,
     )
+<<<<<<< HEAD
 
 
 async def get_similar_content_async(
@@ -699,6 +700,8 @@ async def get_similar_content_async(
         n_similar,
         asession,
     )
+=======
+>>>>>>> 0de7920 (Update documentation, deployment scripts and add additional tests)
 
 
 async def get_similar_content_async(
