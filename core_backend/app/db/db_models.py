@@ -319,21 +319,65 @@ class ContentDB(Base):
     __tablename__ = "content"
 
     content_id: Mapped[int] = mapped_column(Integer, primary_key=True, nullable=False)
-    content_embedding: Mapped[Vector] = mapped_column(
-        Vector(int(PGVECTOR_VECTOR_SIZE)), nullable=False
-    )
-    content_title: Mapped[str] = mapped_column(String(length=150), nullable=False)
-    content_text: Mapped[str] = mapped_column(String(length=2000), nullable=False)
-    content_language: Mapped[str] = mapped_column(String, nullable=False)
 
     content_metadata: Mapped[JSONDict] = mapped_column(JSON, nullable=False)
-
-    created_datetime_utc: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    updated_datetime_utc: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
     def __repr__(self) -> str:
         """Pretty Print"""
         return f"<Content #{self.content_id}:  {self.content_text}>"
+
+
+class LanguageDB(Base):
+    """
+    SQL Alchemy data model for language
+    """
+
+    __tablename__ = "languages"
+
+    language_id: Mapped[int] = mapped_column(Integer, primary_key=True, nullable=False)
+
+    language_name: Mapped[str] = mapped_column(String, nullable=False)
+
+    def __repr__(self) -> str:
+        """Pretty Print"""
+        return f"<Language #{self.language_id}:  {self.language_name}>"
+
+
+class ContentTextDB(Base):
+    """
+    SQL Alchemy data model for content text
+    """
+
+    __tablename__ = "content_text"
+
+    content_text_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, nullable=False
+    )
+    content_embedding: Mapped[Vector] = mapped_column(
+        Vector(int(PGVECTOR_VECTOR_SIZE)), nullable=False
+    )
+
+    content_title: Mapped[str] = mapped_column(String(length=150), nullable=False)
+    content_text: Mapped[str] = mapped_column(String(length=2000), nullable=False)
+    created_datetime_utc: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    updated_datetime_utc: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    content_text_metadata: Mapped[JSONDict] = mapped_column(JSON, nullable=False)
+
+    language_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("languages.language_id"), nullable=False
+    )
+
+    content_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("content.content_id"), nullable=False
+    )
+
+    language: "LanguageDB" = relationship("LanguageDB")
+
+    content: "ContentDB" = relationship("ContentDB")
+
+    def __repr__(self) -> str:
+        """Pretty Print"""
+        return f"<ContentText #{self.content_text_id}:  {self.content_text}>"
 
 
 async def save_content_to_db(
