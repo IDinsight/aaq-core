@@ -15,7 +15,7 @@ from core_backend.app.configs.app_config import (
     PGVECTOR_VECTOR_SIZE,
 )
 from core_backend.app.configs.llm_prompts import AlignmentScore, IdentifiedLanguage
-from core_backend.app.db.db_models import ContentDB
+from core_backend.app.db.db_models import ContentDB, ContentTextDB, LanguageDB
 from core_backend.app.db.engine import get_session
 from core_backend.app.llm_call import check_output, parse_input
 from core_backend.app.schemas import ResultState, UserQueryRefined, UserQueryResponse
@@ -44,7 +44,21 @@ def db_session() -> pytest.FixtureRequest:
 
 
 @pytest.fixture(scope="session")
-def faq_contents(client: TestClient, db_session: pytest.FixtureRequest) -> None:
+def add_language(client: TestClient, db_session: pytest.FixtureRequest) -> None:
+    languages = [
+        LanguageDB(language_id=1, language_name="ENGLISH"),
+        LanguageDB(language_id=2, language_name="HINDI"),
+    ]
+    db_session.add_all(languages)
+    db_session.commit()
+
+
+@pytest.fixture(scope="session")
+def faq_contents(
+    client: TestClient,
+    add_language: pytest.FixtureRequest,
+    db_session: pytest.FixtureRequest,
+) -> None:
     with open("tests/api/data/content.json", "r") as f:
         json_data = json.load(f)
     contents = []
@@ -54,13 +68,15 @@ def faq_contents(client: TestClient, db_session: pytest.FixtureRequest) -> None:
         content_embedding = fake_embedding(EMBEDDING_MODEL, text_to_embed).data[0][
             "embedding"
         ]
-
-        contend_db = ContentDB(
+        content_db = ContentDB(content_id=i)
+        db_session.add(content_db)
+        contend_db = ContentTextDB(
+            content_text_id=i,
             content_id=i,
             content_embedding=content_embedding,
             content_title=content["content_title"],
             content_text=content["content_text"],
-            content_language="ENGLISH",
+            language_id=1,
             content_metadata=content.get("content_metadata", {}),
             created_datetime_utc=datetime.utcnow(),
             updated_datetime_utc=datetime.utcnow(),

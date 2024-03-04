@@ -10,11 +10,16 @@ from ..db.db_models import (
     delete_content_from_db,
     get_content_from_db,
     get_list_of_content_from_db,
+    is_content_language_combination_unique,
     save_content_to_db,
     update_content_in_db,
 )
 from ..db.engine import get_async_session
-from ..schemas import AuthenticatedUser, ContentCreate, ContentRetrieve
+from ..schemas import (
+    AuthenticatedUser,
+    ContentRetrieve,
+    ContentTextCreate,
+)
 from ..utils import setup_logger
 
 router = APIRouter(prefix="/content")
@@ -23,7 +28,7 @@ logger = setup_logger()
 
 @router.post("/create", response_model=ContentRetrieve)
 async def create_content(
-    content: ContentCreate,
+    content: ContentTextCreate,
     full_access_user: Annotated[
         AuthenticatedUser, Depends(get_current_fullaccess_user)
     ],
@@ -33,15 +38,23 @@ async def create_content(
     Create content endpoint. Calls embedding model to get content embedding and
     upserts it to PG database
     """
-
+    if not (
+        await is_content_language_combination_unique(
+            content.content_id, content.language_id, asession
+        )
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Content and language combination already exists",
+        )
     content_db = await save_content_to_db(content, asession)
     return _convert_record_to_schema(content_db)
 
 
-@router.put("/{content_id}/edit", response_model=ContentRetrieve)
+@router.put("/{content_text_id}/edit", response_model=ContentRetrieve)
 async def edit_content(
-    content_id: int,
-    content: ContentCreate,
+    content_text_id: int,
+    content: ContentTextCreate,
     full_access_user: Annotated[
         AuthenticatedUser, Depends(get_current_fullaccess_user)
     ],
@@ -51,16 +64,26 @@ async def edit_content(
     Edit content endpoint
     """
     old_content = await get_content_from_db(
-        content_id,
+        content_text_id,
         asession,
     )
 
     if not old_content:
         raise HTTPException(
-            status_code=404, detail=f"Content id `{content_id}` not found"
+            status_code=404, detail=f"Content id `{content_text_id}` not found"
         )
+    if old_content.language_id != content.language_id and not (
+        await is_content_language_combination_unique(
+            content.content_id, content.language_id, asession
+        )
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Content and language combination already exists",
+        )
+
     updated_content = await update_content_in_db(
-        content_id,
+        content_text_id,
         content,
         asession,
     )
@@ -87,9 +110,9 @@ async def retrieve_content(
     return contents
 
 
-@router.delete("/{content_id}/delete")
+@router.delete("/{content_text_id}/delete")
 async def delete_content(
-    content_id: int,
+    content_text_id: int,
     full_access_user: Annotated[
         AuthenticatedUser, Depends(get_current_fullaccess_user)
     ],
@@ -99,20 +122,20 @@ async def delete_content(
     Delete content endpoint
     """
     record = await get_content_from_db(
-        content_id,
+        content_text_id,
         asession,
     )
 
     if not record:
         raise HTTPException(
-            status_code=404, detail=f"Content id `{content_id}` not found"
+            status_code=404, detail=f"Content id `{content_text_id}` not found"
         )
-    await delete_content_from_db(content_id, asession)
+    await delete_content_from_db(content_text_id, record.content_id, asession)
 
 
-@router.get("/{content_id}", response_model=ContentRetrieve)
+@router.get("/{content_text_id}", response_model=ContentRetrieve)
 async def retrieve_content_by_id(
-    content_id: int,
+    content_text_id: int,
     readonly_access_user: Annotated[
         AuthenticatedUser, Depends(get_current_readonly_user)
     ],
@@ -122,11 +145,11 @@ async def retrieve_content_by_id(
     Retrieve content by id endpoint
     """
 
-    record = await get_content_from_db(content_id, asession)
+    record = await get_content_from_db(content_text_id, asession)
 
     if not record:
         raise HTTPException(
-            status_code=404, detail=f"Content id `{content_id}` not found"
+            status_code=404, detail=f"Content id `{content_text_id}` not found"
         )
 
     return _convert_record_to_schema(record)
@@ -137,10 +160,11 @@ def _convert_record_to_schema(record: ContentDB) -> ContentRetrieve:
     Convert db_models.ContentDB models to ContentRetrieve schema
     """
     content_retrieve = ContentRetrieve(
-        content_id=record.content_id,
+        content_text_id=record.content_text_id,
         content_title=record.content_title,
         content_text=record.content_text,
-        content_language=record.content_language,
+        content_id=record.content_id,
+        language_id=record.language_id,
         content_metadata=record.content_metadata,
         created_datetime_utc=record.created_datetime_utc,
         updated_datetime_utc=record.updated_datetime_utc,
