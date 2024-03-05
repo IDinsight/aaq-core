@@ -153,6 +153,17 @@ class ContentTextCreate(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+    @validator("content_language")
+    def validate_language(cls, v: str) -> str:
+        """
+        Validator for language
+        """
+
+        if v not in IdentifiedLanguage.get_supported_languages():
+            raise ValueError(f"Language {v} is not supported")
+
+        return v
+
 
 class ContentRetrieve(ContentTextCreate):
     """
