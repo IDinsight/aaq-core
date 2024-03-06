@@ -48,7 +48,7 @@ def faq_contents(
     client: TestClient,
     existing_language_id: Tuple[int, int],
     db_session: pytest.FixtureRequest,
-) -> None:
+) -> Generator[Any, None, None]:
     with open("tests/api/data/content.json", "r") as f:
         json_data = json.load(f)
     contents = []
