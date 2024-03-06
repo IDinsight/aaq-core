@@ -44,21 +44,11 @@ def db_session() -> pytest.FixtureRequest:
 
 
 @pytest.fixture(scope="session")
-def add_language(client: TestClient, db_session: pytest.FixtureRequest) -> None:
-    languages = [
-        LanguageDB(language_id=1, language_name="ENGLISH"),
-        LanguageDB(language_id=2, language_name="HINDI"),
-    ]
-    db_session.add_all(languages)
-    db_session.commit()
-
-
-@pytest.fixture(scope="session")
 def faq_contents(
     client: TestClient,
-    add_language: pytest.FixtureRequest,
+    existing_language_id: Tuple[int, int],
     db_session: pytest.FixtureRequest,
-) -> None:
+) -> Generator[Any, None, None]:
     with open("tests/api/data/content.json", "r") as f:
         json_data = json.load(f)
     contents = []
@@ -76,7 +66,7 @@ def faq_contents(
             content_embedding=content_embedding,
             content_title=content["content_title"],
             content_text=content["content_text"],
-            language_id=1,
+            language_id=existing_language_id[0],
             content_metadata=content.get("content_metadata", {}),
             created_datetime_utc=datetime.utcnow(),
             updated_datetime_utc=datetime.utcnow(),
@@ -85,6 +75,33 @@ def faq_contents(
 
     db_session.add_all(contents)
     db_session.commit()
+    yield
+    db_session.query(ContentTextDB).delete()
+    db_session.query(ContentDB).delete()
+    db_session.query(LanguageDB).delete()
+    db_session.commit()
+
+
+@pytest.fixture(scope="session")
+def existing_language_id(
+    client: TestClient,
+    fullaccess_token: str,
+) -> Generator[tuple[int, int], None, None]:
+    response_1 = client.post(
+        "/language/create",
+        headers={"Authorization": f"Bearer {fullaccess_token}"},
+        json={"language_name": "ENGLISH", "is_default": True},
+    )
+
+    response_2 = client.post(
+        "/language/create",
+        headers={"Authorization": f"Bearer {fullaccess_token}"},
+        json={"language_name": "HINDI", "is_default": False},
+    )
+
+    language_id_1 = response_1.json()["language_id"]
+    language_id_2 = response_2.json()["language_id"]
+    yield (language_id_1, language_id_2)
 
 
 @pytest.fixture(scope="session")

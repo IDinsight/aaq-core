@@ -1,8 +1,8 @@
-"""Multilingual support
+"""multilingual support
 
-Revision ID: 93b662971c10
+Revision ID: cb3e629ece14
 Revises: f269c75dbf69
-Create Date: 2024-03-01 12:13:54.349453
+Create Date: 2024-03-05 20:05:31.194176
 
 """
 
@@ -19,7 +19,7 @@ from app.configs.app_config import (
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = "93b662971c10"
+revision: str = "cb3e629ece14"
 down_revision: Union[str, None] = "f269c75dbf69"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -36,7 +36,17 @@ def upgrade() -> None:
         "languages",
         sa.Column("language_id", sa.Integer(), nullable=False),
         sa.Column("language_name", sa.String(), nullable=False),
+        sa.Column("is_default", sa.Boolean(), nullable=False),
+        sa.Column("created_datetime_utc", sa.DateTime(), nullable=False),
+        sa.Column("updated_datetime_utc", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("language_id"),
+    )
+    op.create_index(
+        "ix_languages_is_default_true",
+        "languages",
+        ["is_default"],
+        unique=True,
+        postgresql_where=sa.text("is_default IS true"),
     )
     op.create_table(
         "content_texts",
@@ -117,20 +127,16 @@ def downgrade() -> None:
         sa.PrimaryKeyConstraint("content_id", name="content_pkey"),
     )
     op.drop_index(
-        "content_idx",
-        table_name="content_texts",
-        postgresql_using="hnsw",
-        postgresql_with={
-            "M": {PGVECTOR_M},
-            "ef_construction": {PGVECTOR_EF_CONSTRUCTION},
-        },
-        postgresql_ops={"embedding": {PGVECTOR_DISTANCE}},
+        "ix_languages_is_default_true",
+        table_name="languages",
+        postgresql_where=sa.text("is_default IS true"),
     )
     op.execute(
         f"""CREATE INDEX content_idx ON content
         USING hnsw (content_embedding {PGVECTOR_DISTANCE})
         WITH (m = {PGVECTOR_M}, ef_construction = {PGVECTOR_EF_CONSTRUCTION})"""
     )
+
     op.drop_table("content_texts")
     op.drop_table("languages")
     op.drop_table("contents")

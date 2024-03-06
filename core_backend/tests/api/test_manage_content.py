@@ -22,7 +22,7 @@ DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
 def existing_content_ids(
     request: pytest.FixtureRequest,
     client: TestClient,
-    add_language: pytest.FixtureRequest,
+    existing_language_id: tuple,
     fullaccess_token: str,
 ) -> Generator[tuple, None, None]:
     response = client.post(
@@ -32,7 +32,7 @@ def existing_content_ids(
             "content_title": request.param[0],
             "content_text": request.param[1],
             "content_id": 0,
-            "language_id": 1,
+            "language_id": existing_language_id[0],
             "content_metadata": request.param[2],
         },
     )
@@ -58,7 +58,7 @@ class TestManageContent:
     def test_create_and_delete_content(
         self,
         client: TestClient,
-        add_language: pytest.FixtureRequest,
+        existing_language_id: tuple,
         content_title: str,
         content_text: str,
         fullaccess_token: str,
@@ -71,7 +71,7 @@ class TestManageContent:
                 "content_title": content_title,
                 "content_text": content_text,
                 "content_id": 0,
-                "language_id": 1,
+                "language_id": existing_language_id[0],
                 "content_metadata": content_metadata,
             },
         )
@@ -102,6 +102,7 @@ class TestManageContent:
         self,
         client: TestClient,
         existing_content_ids: tuple[int, int],
+        existing_language_id: tuple,
         content_title: str,
         content_text: str,
         fullaccess_token: str,
@@ -116,7 +117,7 @@ class TestManageContent:
                 "content_title": content_title,
                 "content_text": content_text,
                 "content_id": content_id,
-                "language_id": 1,
+                "language_id": existing_language_id[0],
                 "content_metadata": content_metadata,
             },
         )
@@ -137,7 +138,7 @@ class TestManageContent:
     def test_edit_content_not_found(
         self,
         client: TestClient,
-        add_language: pytest.FixtureRequest,
+        existing_language_id: tuple,
         fullaccess_token: str,
     ) -> None:
         response = client.put(
@@ -147,7 +148,7 @@ class TestManageContent:
                 "content_title": "title",
                 "content_text": "sample text",
                 "content_id": 1,
-                "language_id": 1,
+                "language_id": existing_language_id[0],
                 "content_metadata": {"key": "value"},
             },
         )
@@ -206,7 +207,7 @@ class TestAuthManageContent:
     def test_auth_create(
         self,
         client: TestClient,
-        add_language: pytest.FixtureRequest,
+        existing_language_id: tuple,
         access_token: str,
         expected_status: int,
         request: pytest.FixtureRequest,
@@ -219,7 +220,7 @@ class TestAuthManageContent:
                 "content_title": "sample title",
                 "content_text": "sample text",
                 "content_id": 0,
-                "language_id": 1,
+                "language_id": existing_language_id[0],
                 "content_metadata": {},
             },
         )
@@ -259,7 +260,6 @@ class TestAuthManageContent:
     def test_auth_list(
         self,
         client: TestClient,
-        add_language: pytest.FixtureRequest,
         access_token: str,
         expected_status: int,
         request: pytest.FixtureRequest,
@@ -291,15 +291,10 @@ class TestAuthManageContent:
         assert response.status_code == expected_status
 
 
-@pytest.mark.parametrize(
-    "language_id, expected_status",
-    [(1, 400), (2, 200)],
-)
 def test_add_content_text_to_content(
     client: TestClient,
     existing_content_ids: tuple[int, int],
-    language_id: int,
-    expected_status: int,
+    existing_language_id: tuple,
     fullaccess_token: str,
 ) -> None:
     response = client.post(
@@ -309,12 +304,24 @@ def test_add_content_text_to_content(
             "content_title": "sample title",
             "content_text": "sample text",
             "content_id": existing_content_ids[1],
-            "language_id": language_id,
+            "language_id": existing_language_id[0],
             "content_metadata": {},
         },
     )
 
-    assert response.status_code == expected_status
+    assert response.status_code == 400
+    response = client.post(
+        "/content/create",
+        headers={"Authorization": f"Bearer {fullaccess_token}"},
+        json={
+            "content_title": "sample title",
+            "content_text": "sample text",
+            "content_id": existing_content_ids[1],
+            "language_id": existing_language_id[1],
+            "content_metadata": {},
+        },
+    )
+    assert response.status_code == 200
 
 
 def test_convert_record_to_schema() -> None:

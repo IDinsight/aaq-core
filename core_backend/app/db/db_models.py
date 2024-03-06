@@ -5,6 +5,7 @@ from litellm import aembedding, embedding
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     JSON,
+    Boolean,
     DateTime,
     ForeignKey,
     Integer,
@@ -14,6 +15,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.schema import Index
 
 from ..configs.app_config import EMBEDDING_MODEL, PGVECTOR_VECTOR_SIZE
 from ..schemas import (
@@ -336,6 +338,18 @@ class LanguageDB(Base):
     language_id: Mapped[int] = mapped_column(Integer, primary_key=True, nullable=False)
 
     language_name: Mapped[str] = mapped_column(String, nullable=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_datetime_utc: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    updated_datetime_utc: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+    __table_args__ = (
+        Index(
+            "ix_languages_is_default_true",
+            "is_default",
+            unique=True,
+            postgresql_where=(is_default.is_(True)),
+        ),
+    )
 
     def __repr__(self) -> str:
         """Pretty Print"""
@@ -343,7 +357,7 @@ class LanguageDB(Base):
 
 
 async def save_language_to_db(
-    content: LanguageBase,
+    language: LanguageBase,
     asession: AsyncSession,
 ) -> LanguageDB:
     """
@@ -351,7 +365,10 @@ async def save_language_to_db(
     """
 
     language_db = LanguageDB(
-        language_name=content.language_name,
+        language_name=language.language_name,
+        is_default=language.is_default,
+        created_datetime_utc=datetime.utcnow(),
+        updated_datetime_utc=datetime.utcnow(),
     )
     asession.add(language_db)
 
@@ -371,7 +388,10 @@ async def update_language_in_db(
     """
 
     language_db = LanguageDB(
-        language_id=language_id, language_name=language.language_name
+        language_id=language_id,
+        is_default=language.is_default,
+        language_name=language.language_name,
+        updated_datetime_utc=datetime.utcnow(),
     )
 
     language_db = await asession.merge(language_db)
@@ -399,11 +419,19 @@ async def get_language_from_db(
     Retrieves a content from the database
     """
     stmt = select(LanguageDB).where(LanguageDB.language_id == language_id)
-    content_row = (await asession.execute(stmt)).first()
-    if content_row:
-        return content_row[0]
-    else:
-        return None
+    language_row = (await asession.execute(stmt)).scalar_one_or_none()
+    return language_row
+
+
+async def get_default_language_from_db(
+    asession: AsyncSession,
+) -> Optional[LanguageDB]:
+    """
+    Retrieves a content from the database
+    """
+    stmt = select(LanguageDB).where(LanguageDB.is_default is True)
+    language_row = (await asession.execute(stmt)).scalar_one_or_none()
+    return language_row
 
 
 async def get_list_of_languages_from_db(
@@ -413,10 +441,26 @@ async def get_list_of_languages_from_db(
     Retrieves all content from the database
     """
     stmt = select(LanguageDB)
+    if offset > 0:
+        stmt = stmt.offset(offset)
+    if limit is not None:
+        stmt = stmt.limit(limit)
 
-    content_rows = (await asession.execute(stmt)).all()
+    language_rows = (await asession.execute(stmt)).all()
 
-    return content_rows if content_rows else []
+    return [c[0] for c in language_rows] if language_rows else []
+
+
+async def is_language_name_unique(language_name: str, asession: AsyncSession) -> bool:
+    """
+    Check if the language name is unique
+    """
+    stmt = select(LanguageDB).where(LanguageDB.language_name == language_name)
+    language_row = (await asession.execute(stmt)).scalar_one_or_none()
+    if language_row:
+        return False
+    else:
+        return True
 
 
 class ContentTextDB(Base):
@@ -582,6 +626,24 @@ async def get_list_of_content_from_db(
     return [c[0] for c in content_rows] if content_rows else []
 
 
+async def get_all_content_from_one_language(
+    asession: AsyncSession,
+    language_id: int,
+    offset: int = 0,
+    limit: Optional[int] = None,
+) -> List[ContentTextDB]:
+    """
+    Retrieves all content from the database
+    """
+    stmt = select(ContentTextDB).where(ContentTextDB.language_id == language_id)
+    if offset > 0:
+        stmt = stmt.offset(offset)
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    content_rows = (await asession.execute(stmt)).all()
+    return [c[0] for c in content_rows] if content_rows else []
+
+
 async def get_all_languages_version_of_content(
     content_id: int,
     asession: AsyncSession,
@@ -591,7 +653,7 @@ async def get_all_languages_version_of_content(
     """
     stmt = select(ContentTextDB).where(ContentDB.content_id == content_id)
     content_rows = (await asession.execute(stmt)).all()
-    return content_rows if content_rows else []
+    return [c[0] for c in content_rows] if content_rows else []
 
 
 async def _get_content_embeddings(
