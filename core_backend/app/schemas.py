@@ -143,7 +143,6 @@ class ContentTextCreate(BaseModel):
     Pydantic model for content creation
     """
 
-    # Ensure len("*{title}*\n\n{text}") <= 1600
     content_title: Annotated[str, StringConstraints(max_length=150)]
     content_text: Annotated[str, StringConstraints(max_length=2000)]
     language_id: int
@@ -152,17 +151,6 @@ class ContentTextCreate(BaseModel):
     content_metadata: dict = {}
 
     model_config = ConfigDict(from_attributes=True)
-
-    @validator("content_language")
-    def validate_language(cls, v: str) -> str:
-        """
-        Validator for language
-        """
-
-        if v not in IdentifiedLanguage.get_supported_languages():
-            raise ValueError(f"Language {v} is not supported")
-
-        return v
 
 
 class ContentRetrieve(ContentTextCreate):
