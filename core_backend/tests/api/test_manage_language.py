@@ -85,10 +85,59 @@ class TestManageLanguage:
         assert response.status_code == 400
 
     def test_delete_default_language(
-        self, existing_language_id: tuple, client: TestClient, fullaccess_token: str
+        self,
+        existing_language_id: tuple,
+        client: TestClient,
+        fullaccess_token: str,
+        readonly_token: str,
     ) -> None:
+        response = client.get(
+            "/language/default",
+            headers={"Authorization": f"Bearer {readonly_token}"},
+        )
+        assert response.status_code == 200
+        default_id = response.json()["language_id"]
         response = client.delete(
-            f"/language/{existing_language_id[0]}/delete",
+            f"/language/{default_id}/delete",
             headers={"Authorization": f"Bearer {fullaccess_token}"},
         )
         assert response.status_code == 400
+
+    @pytest.mark.parametrize(
+        "language_name",
+        [
+            ("FIRST-DEFAULT"),
+            ("SECOND-DEFAULT"),
+        ],
+    )
+    def test_always_one_default_language(
+        self,
+        client: TestClient,
+        existing_language_id: tuple,
+        language_name: str,
+        fullaccess_token: str,
+        readonly_token: str,
+    ) -> None:
+        response = client.post(
+            "/language/create",
+            headers={"Authorization": f"Bearer {fullaccess_token}"},
+            json={"language_name": language_name, "is_default": True},
+        )
+        new_default_id = response.json()["language_id"]
+        assert response.status_code == 200
+        assert response.json()["is_default"] is True
+
+        response = client.get(
+            "/language/default",
+            headers={"Authorization": f"Bearer {readonly_token}"},
+        )
+        assert response.status_code == 200
+        assert response.json()["language_id"] == new_default_id
+
+        response = client.put(
+            f"/language/{existing_language_id[0]}/edit",
+            headers={"Authorization": f"Bearer {fullaccess_token}"},
+            json={"language_name": "ENGLISH", "is_default": True},
+        )
+        assert response.status_code == 200
+        assert response.json()["is_default"] is True

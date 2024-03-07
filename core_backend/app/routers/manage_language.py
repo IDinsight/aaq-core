@@ -72,6 +72,7 @@ async def edit_language(
         not (await is_language_name_unique(language.language_name, asession))
     ):
         raise HTTPException(status_code=400, detail="Language name already exists")
+
     if language.is_default is True:
         await unset_default_language(asession)
 
@@ -94,6 +95,20 @@ async def retrieve_languages(
     """
     languages = await get_list_of_languages_from_db(asession)
     return [_convert_language_record_to_schema(language) for language in languages]
+
+
+@router.get("/default", response_model=LanguageRetrieve)
+async def retrieve_default_language(
+    readonly_user: Annotated[AuthenticatedUser, Depends(get_current_readonly_user)],
+    asession: AsyncSession = Depends(get_async_session),
+) -> LanguageRetrieve:
+    """
+    Retrieve default language endpoint
+    """
+    language = await get_default_language_from_db(asession)
+    if not language:
+        raise HTTPException(status_code=404, detail="Default language not found")
+    return _convert_language_record_to_schema(language)
 
 
 @router.get("/{language_id}", response_model=LanguageRetrieve)
@@ -133,7 +148,7 @@ async def delete_language(
         raise HTTPException(
             status_code=404, detail=f"Language id `{language_id}` not found"
         )
-    print(language.is_default)
+
     if language.is_default:
         raise HTTPException(
             status_code=400, detail="Default language cannot be deleted"
@@ -146,6 +161,7 @@ async def unset_default_language(asession: AsyncSession) -> None:
     Unset default language
     """
     default_language = await get_default_language_from_db(asession)
+
     if default_language:
         default_language.is_default = False
         default_language_schema = _convert_language_record_to_schema(default_language)

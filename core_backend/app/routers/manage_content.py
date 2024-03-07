@@ -8,7 +8,9 @@ from ..auth import get_current_fullaccess_user, get_current_readonly_user
 from ..db.db_models import (
     ContentDB,
     delete_content_from_db,
+    get_all_languages_version_of_content,
     get_content_from_db,
+    get_language_from_db,
     get_list_of_content_from_db,
     is_content_language_combination_unique,
     save_content_to_db,
@@ -38,17 +40,14 @@ async def create_content(
     Create content endpoint. Calls embedding model to get content embedding and
     upserts it to PG database
     """
-    if not (
-        await is_content_language_combination_unique(
-            content.content_id, content.language_id, asession
-        )
-    ):
+    if await is_content_and_language_valid(content, asession):
+        content_db = await save_content_to_db(content, asession)
+        return _convert_record_to_schema(content_db)
+    else:
         raise HTTPException(
             status_code=400,
-            detail="Content and language combination already exists",
+            detail="Content could not be added",
         )
-    content_db = await save_content_to_db(content, asession)
-    return _convert_record_to_schema(content_db)
 
 
 @router.put("/{content_text_id}/edit", response_model=ContentRetrieve)
@@ -72,23 +71,23 @@ async def edit_content(
         raise HTTPException(
             status_code=404, detail=f"Content id `{content_text_id}` not found"
         )
-    if old_content.language_id != content.language_id and not (
-        await is_content_language_combination_unique(
-            content.content_id, content.language_id, asession
-        )
+    is_updated_language = old_content.language_id != content.language_id
+
+    if await is_content_and_language_valid(
+        content, asession, True, is_updated_language
     ):
+        updated_content = await update_content_in_db(
+            content_text_id,
+            content,
+            asession,
+        )
+
+        return _convert_record_to_schema(updated_content)
+    else:
         raise HTTPException(
             status_code=400,
-            detail="Content and language combination already exists",
+            detail="Content could not be updated",
         )
-
-    updated_content = await update_content_in_db(
-        content_text_id,
-        content,
-        asession,
-    )
-
-    return _convert_record_to_schema(updated_content)
 
 
 @router.get("/list", response_model=list[ContentRetrieve])
@@ -153,6 +152,62 @@ async def retrieve_content_by_id(
         )
 
     return _convert_record_to_schema(record)
+
+
+@router.get("/{content_text_id}/list", response_model=list[ContentRetrieve])
+async def retrieve_all_languages_versions(
+    content_text_id: int,
+    readonly_access_user: Annotated[
+        AuthenticatedUser, Depends(get_current_readonly_user)
+    ],
+    asession: AsyncSession = Depends(get_async_session),
+) -> List[ContentRetrieve]:
+    """
+    Retrieve content by id endpoint
+    """
+    content = await get_content_from_db(content_text_id, asession)
+    if not content:
+        raise HTTPException(
+            status_code=404, detail=f"Content id `{content_text_id}` not found"
+        )
+    records = await get_all_languages_version_of_content(content.content_id, asession)
+
+    return [_convert_record_to_schema(record) for record in records]
+
+
+async def is_content_and_language_valid(
+    content: ContentTextCreate,
+    asession: AsyncSession,
+    is_edit: bool = False,
+    is_updated_language: bool = True,
+) -> bool:
+    contents = await get_all_languages_version_of_content(
+        content.content_id, asession=asession
+    )
+    if len(contents) < 1:
+        if is_edit or content.content_id != 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Content id `{content.content_id}` does not exist",
+            )
+
+    language = await get_language_from_db(content.language_id, asession)
+    if not language:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Language id `{content.language_id}` does not exist",
+        )
+    if is_updated_language and not (
+        await is_content_language_combination_unique(
+            content.content_id, content.language_id, asession
+        )
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Content and language combination already exists",
+        )
+
+    return True
 
 
 def _convert_record_to_schema(record: ContentDB) -> ContentRetrieve:

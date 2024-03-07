@@ -651,7 +651,7 @@ async def get_all_languages_version_of_content(
     """
     Retrieves all content from the database
     """
-    stmt = select(ContentTextDB).where(ContentDB.content_id == content_id)
+    stmt = select(ContentTextDB).where(ContentTextDB.content_id == content_id)
     content_rows = (await asession.execute(stmt)).all()
     return [c[0] for c in content_rows] if content_rows else []
 

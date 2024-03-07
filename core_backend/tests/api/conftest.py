@@ -43,12 +43,12 @@ def db_session() -> pytest.FixtureRequest:
         next(session_gen, None)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def faq_contents(
     client: TestClient,
     existing_language_id: Tuple[int, int],
     db_session: pytest.FixtureRequest,
-) -> Generator[Any, None, None]:
+) -> None:
     with open("tests/api/data/content.json", "r") as f:
         json_data = json.load(f)
     contents = []
@@ -75,14 +75,9 @@ def faq_contents(
 
     db_session.add_all(contents)
     db_session.commit()
-    yield
-    db_session.query(ContentTextDB).delete()
-    db_session.query(ContentDB).delete()
-    db_session.query(LanguageDB).delete()
-    db_session.commit()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def existing_language_id(
     client: TestClient,
     fullaccess_token: str,
@@ -102,6 +97,15 @@ def existing_language_id(
     language_id_1 = response_1.json()["language_id"]
     language_id_2 = response_2.json()["language_id"]
     yield (language_id_1, language_id_2)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def delete_all_rows(db_session: pytest.FixtureRequest) -> Generator[None, None, None]:
+    yield
+    db_session.query(ContentTextDB).delete()
+    db_session.query(ContentDB).delete()
+    db_session.query(LanguageDB).delete()
+    db_session.commit()
 
 
 @pytest.fixture(scope="session")
