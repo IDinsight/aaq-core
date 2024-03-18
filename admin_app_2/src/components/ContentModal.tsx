@@ -8,14 +8,16 @@ import {
   ThumbUp,
 } from "@mui/icons-material";
 import { Box, Button, Fade, Modal, Typography } from "@mui/material";
+import Link from "next/link";
+import { apiCalls } from "../utils/api";
+import LanguageButtonBar from "./LanguageButtonBar";
+import { Layout } from "./Layout";
+import React from "react";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
-import Link from "next/link";
-import LanguageButtonBar from "./LanguageButtonBar";
-import { Layout } from "./Layout";
 
 const ContentViewModal = ({
   title,
@@ -24,15 +26,13 @@ const ContentViewModal = ({
   last_modified,
   open,
   onClose,
-  editAccess,
 }: {
   title: string;
   text: string;
-  content_id: number;
+  content_id: string;
   last_modified: string;
   open: boolean;
   onClose: () => void;
-  editAccess: boolean;
 }) => {
   return (
     <Modal
@@ -98,17 +98,13 @@ const ContentViewModal = ({
                 {...appStyles.alignItemsCenter}
                 flexDirection={"row"}
               >
-                <Button
-                  variant="contained"
-                  color="primary"
-                  disabled={!editAccess}
-                  component={Link}
-                  href={`/content/edit?content_id=${content_id}`}
-                >
-                  <Edit />
-                  <Layout.Spacer horizontal multiplier={0.4} />
-                  Edit
-                </Button>
+                <Link href={`/content/edit?content_id=${content_id}`}>
+                  <Button variant="contained" color="primary">
+                    <Edit />
+                    <Layout.Spacer horizontal multiplier={0.4} />
+                    Edit
+                  </Button>
+                </Link>
                 <Layout.Spacer horizontal multiplier={1} />
               </Layout.FlexBox>
               <Layout.FlexBox
@@ -117,13 +113,13 @@ const ContentViewModal = ({
               >
                 <Typography variant="body2" color={appColors.darkGrey}>
                   Last modified on{" "}
-                  {new Date(last_modified).toLocaleString(undefined, {
+                  {new Date(last_modified).toLocaleString("en-UK", {
                     day: "numeric",
                     month: "short",
                     year: "numeric",
                     hour: "numeric",
                     minute: "numeric",
-                    hour12: true,
+                    hour12: false,
                   })}
                 </Typography>
               </Layout.FlexBox>
@@ -155,14 +151,12 @@ const DeleteContentModal = ({
   onClose,
   onSuccessfulDelete,
   onFailedDelete,
-  deleteContent,
 }: {
-  content_id: number;
+  content_id: string;
   open: boolean;
   onClose: () => void;
   onSuccessfulDelete: (content_id: number) => void;
   onFailedDelete: (content_id: number) => void;
-  deleteContent: (content_id: number) => Promise<any>;
 }) => {
   return (
     <Dialog
@@ -180,12 +174,13 @@ const DeleteContentModal = ({
           cannot be undone.
         </DialogContentText>
       </DialogContent>
-      <DialogActions sx={{ margin: 1 }}>
+      <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button
           onClick={() => {
             const handleDeleteContent = async (content_id: number) => {
-              const results = deleteContent(content_id)
+              const results = apiCalls
+                .deleteContent(content_id)
                 .then((res) => {
                   onSuccessfulDelete(content_id);
                 })
@@ -198,9 +193,6 @@ const DeleteContentModal = ({
             onClose();
           }}
           autoFocus
-          variant="contained"
-          color="error"
-          startIcon={<Delete />}
         >
           Delete
         </Button>

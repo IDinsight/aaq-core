@@ -1,17 +1,15 @@
 "use client";
 import LanguageButtonBar from "@/components/LanguageButtonBar";
 import { Layout } from "@/components/Layout";
-import { FullAccessComponent } from "@/components/ProtectedComponent";
 import { appColors, appStyles, sizes } from "@/utils";
 import { apiCalls } from "@/utils/api";
-import { useAuth } from "@/utils/auth";
 import { ChevronLeft } from "@mui/icons-material";
 import { Button, CircularProgress, TextField, Typography } from "@mui/material";
 import Alert from "@mui/material/Alert";
 import { useRouter, useSearchParams } from "next/navigation";
 import React from "react";
 
-export interface Content extends EditContentBody {
+interface Content extends EditContentBody {
   content_id: number | null;
   created_datetime_utc: string | null;
   updated_datetime_utc: string | null;
@@ -31,13 +29,12 @@ const AddEditContentPage = () => {
   const [content, setContent] = React.useState<Content | null>(null);
   const [isLoading, setIsLoading] = React.useState<boolean>(true);
 
-  const { token } = useAuth();
   React.useEffect(() => {
     if (!content_id) {
       setIsLoading(false);
       return;
     } else {
-      apiCalls.getContent(content_id, token!).then((data) => {
+      apiCalls.getContent(content_id).then((data) => {
         setContent(data);
         setIsLoading(false);
       });
@@ -61,19 +58,17 @@ const AddEditContentPage = () => {
     );
   }
   return (
-    <FullAccessComponent>
-      <Layout.FlexBox flexDirection={"column"} sx={{ p: sizes.doubleBaseGap }}>
-        <Header content_id={content_id} />
-        <Layout.FlexBox
-          flexDirection={"column"}
-          sx={{ px: sizes.doubleBaseGap, mx: sizes.smallGap }}
-        >
-          <Layout.Spacer multiplier={2} />
-          <ContentBox content={content} setContent={setContent} />
-          <Layout.Spacer multiplier={1} />
-        </Layout.FlexBox>
+    <Layout.FlexBox flexDirection={"column"} sx={{ p: sizes.doubleBaseGap }}>
+      <Header content_id={content_id} />
+      <Layout.FlexBox
+        flexDirection={"column"}
+        sx={{ px: sizes.doubleBaseGap, mx: sizes.smallGap }}
+      >
+        <Layout.Spacer multiplier={2} />
+        <ContentBox content={content} setContent={setContent} />
+        <Layout.Spacer multiplier={1} />
       </Layout.FlexBox>
-    </FullAccessComponent>
+    </Layout.FlexBox>
   );
 };
 
@@ -89,8 +84,6 @@ const ContentBox = ({
   const [isTitleEmpty, setIsTitleEmpty] = React.useState(false);
   const [isContentEmpty, setIsContentEmpty] = React.useState(false);
 
-  const { token } = useAuth();
-
   const router = useRouter();
   const saveContent = async (content: Content) => {
     const body: EditContentBody = {
@@ -102,8 +95,8 @@ const ContentBox = ({
 
     const promise =
       content.content_id === null
-        ? apiCalls.addContent(body, token!)
-        : apiCalls.editContent(content.content_id, body, token!);
+        ? apiCalls.addContent(body)
+        : apiCalls.editContent(content.content_id, body);
 
     const result = promise
       .then((data) => {
@@ -158,36 +151,41 @@ const ContentBox = ({
     >
       <LanguageButtonBar expandable={true} />
       <Layout.Spacer multiplier={1} />
-      <Typography variant="body2">Title</Typography>
-      <Layout.Spacer multiplier={0.5} />
       <TextField
         required
-        placeholder="Add a title (required)"
-        inputProps={{ maxLength: 150 }}
-        variant="outlined"
         error={isTitleEmpty}
-        helperText={isTitleEmpty ? "Should not be empty" : " "}
+        helperText={isTitleEmpty ? "Should not be empty." : " "}
+        variant="outlined"
+        label="Title"
         sx={{
-          "& .MuiInputBase-root": { backgroundColor: appColors.white },
+          backgroundColor: appColors.white,
+          "& .MuiFormHelperText-root": {
+            backgroundColor: appColors.lightGrey,
+            mx: 0,
+            my: 0, // Set your desired background color here
+          },
         }}
         value={content ? content.content_title : ""}
         onChange={(e) => handleChange(e, "content_title")}
       />
-      <Layout.Spacer multiplier={0.25} />
-      <Typography variant="body2">Content</Typography>
-      <Layout.Spacer multiplier={0.5} />
+      <Layout.Spacer multiplier={1} />
       <TextField
-        required
-        placeholder="Add content (required)"
-        inputProps={{ maxLength: 2000 }}
         multiline
-        rows={15}
-        variant="outlined"
         error={isContentEmpty}
-        helperText={isContentEmpty ? "Should not be empty" : " "}
+        helperText={isContentEmpty ? "Should not be empty." : " "}
+        required
+        variant="outlined"
         sx={{
-          "& .MuiInputBase-root": { backgroundColor: appColors.white },
+          backgroundColor: appColors.white,
+          "& .MuiFormHelperText-root": {
+            backgroundColor: appColors.lightGrey,
+            mx: 0,
+            my: 0, // Set your desired background color here
+          },
         }}
+        label="Content"
+        rows={15}
+        inputProps={{ maxLength: 2000 }}
         value={content ? content.content_text : ""}
         onChange={(e) => handleChange(e, "content_text")}
       />
@@ -236,13 +234,11 @@ const ContentBox = ({
 };
 
 const Header = ({ content_id }: { content_id: number | null }) => {
-  const router = useRouter();
-
   return (
     <Layout.FlexBox flexDirection="row" {...appStyles.alignItemsCenter}>
       <ChevronLeft
         style={{ cursor: "pointer" }}
-        onClick={() => (content_id ? router.back() : router.push("/content"))}
+        onClick={() => (window.location.href = "/content/")}
       />
       <Layout.Spacer multiplier={1} horizontal />
       {content_id ? (

@@ -1,14 +1,22 @@
 "use client";
+import { Button } from "@mui/material";
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 
 export default function Home() {
   const router = useRouter();
-
-  useEffect(() => {
+  const handleLogin = () => {
     router.push("/content");
-  }, []);
+  };
 
-  return <div></div>;
+  return (
+    <div
+      style={{ display: "flex", flexDirection: "column", alignItems: "center" }}
+    >
+      <h1>Login page</h1>
+      <Button onClick={handleLogin} variant="contained">
+        Login
+      </Button>
+    </div>
+  );
 }

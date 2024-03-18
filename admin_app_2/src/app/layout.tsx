@@ -1,9 +1,10 @@
-import theme from "@/theme";
-import AuthProvider from "@/utils/auth";
-import { CssBaseline, ThemeProvider } from "@mui/material";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import NavBar from "@/components/NavBar";
+import theme from "@/theme";
+import { CssBaseline, ThemeProvider } from "@mui/material";
 import React from "react";
+
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -24,7 +25,8 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider theme={theme}>
           <CssBaseline />
-          <AuthProvider>{children}</AuthProvider>
+          <NavBar />
+          {children}
         </ThemeProvider>
       </body>
     </html>
