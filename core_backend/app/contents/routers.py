@@ -1,147 +1,93 @@
-from typing import Annotated, List
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends
 from fastapi.exceptions import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth.dependencies import get_current_fullaccess_user, get_current_readonly_user
+from ..auth.dependencies import get_current_fullaccess_user
 from ..auth.schemas import AuthenticatedUser
 from ..database import get_async_session
 from ..utils import setup_logger
 from .models import (
-    ContentDB,
-    delete_content_from_db,
-    get_content_from_db,
-    get_list_of_content_from_db,
+    ContentTextDB,
+    get_all_languages_version_of_content,
+    get_language_from_db,
+    is_content_language_combination_unique,
     save_content_to_db,
-    update_content_in_db,
 )
-from .schemas import ContentCreate, ContentRetrieve
+from .schemas import (
+    ContentTextCreate,
+    ContentTextRetrieve,
+)
 
 router = APIRouter(prefix="/content")
 logger = setup_logger()
 
 
-@router.post("/create", response_model=ContentRetrieve)
+@router.post("/", response_model=ContentTextRetrieve)
 async def create_content(
-    content: ContentCreate,
+    content: ContentTextCreate,
     full_access_user: Annotated[
         AuthenticatedUser, Depends(get_current_fullaccess_user)
     ],
     asession: AsyncSession = Depends(get_async_session),
-) -> ContentRetrieve | None:
+) -> ContentTextRetrieve | None:
     """
     Create content endpoint. Calls embedding model to get content embedding and
     upserts it to PG database
     """
-
-    content_db = await save_content_to_db(content, asession)
-    return _convert_record_to_schema(content_db)
-
-
-@router.put("/{content_id}/edit", response_model=ContentRetrieve)
-async def edit_content(
-    content_id: int,
-    content: ContentCreate,
-    full_access_user: Annotated[
-        AuthenticatedUser, Depends(get_current_fullaccess_user)
-    ],
-    asession: AsyncSession = Depends(get_async_session),
-) -> ContentRetrieve:
-    """
-    Edit content endpoint
-    """
-    old_content = await get_content_from_db(
-        content_id,
-        asession,
+    is_valid, reason = await validate_create_content(
+        content=content,
+        asession=asession,
     )
-
-    if not old_content:
+    if is_valid:
+        content_db = await save_content_to_db(content, asession)
+        return _convert_record_to_schema(content_db)
+    else:
         raise HTTPException(
-            status_code=404, detail=f"Content id `{content_id}` not found"
-        )
-    updated_content = await update_content_in_db(
-        content_id,
-        content,
-        asession,
-    )
-
-    return _convert_record_to_schema(updated_content)
-
-
-@router.get("/list", response_model=list[ContentRetrieve])
-async def retrieve_content(
-    readonly_access_user: Annotated[
-        AuthenticatedUser, Depends(get_current_readonly_user)
-    ],
-    skip: int = 0,
-    limit: int = 50,
-    asession: AsyncSession = Depends(get_async_session),
-) -> List[ContentRetrieve]:
-    """
-    Retrieve all content endpoint
-    """
-    records = await get_list_of_content_from_db(
-        offset=skip, limit=limit, asession=asession
-    )
-    contents = [_convert_record_to_schema(c) for c in records]
-    return contents
-
-
-@router.delete("/{content_id}/delete")
-async def delete_content(
-    content_id: int,
-    full_access_user: Annotated[
-        AuthenticatedUser, Depends(get_current_fullaccess_user)
-    ],
-    asession: AsyncSession = Depends(get_async_session),
-) -> None:
-    """
-    Delete content endpoint
-    """
-    record = await get_content_from_db(
-        content_id,
-        asession,
-    )
-
-    if not record:
-        raise HTTPException(
-            status_code=404, detail=f"Content id `{content_id}` not found"
-        )
-    await delete_content_from_db(content_id, asession)
-
-
-@router.get("/{content_id}", response_model=ContentRetrieve)
-async def retrieve_content_by_id(
-    content_id: int,
-    readonly_access_user: Annotated[
-        AuthenticatedUser, Depends(get_current_readonly_user)
-    ],
-    asession: AsyncSession = Depends(get_async_session),
-) -> ContentRetrieve:
-    """
-    Retrieve content by id endpoint
-    """
-
-    record = await get_content_from_db(content_id, asession)
-
-    if not record:
-        raise HTTPException(
-            status_code=404, detail=f"Content id `{content_id}` not found"
+            status_code=400,
+            detail=reason,
         )
 
-    return _convert_record_to_schema(record)
+
+async def validate_create_content(
+    content: ContentTextCreate,
+    asession: AsyncSession,
+) -> tuple[bool, Optional[str]]:
+    """
+    Make sure the content and language is valid before saving content_text to db.
+    """
+    if content.content_id is not None:
+        contents = await get_all_languages_version_of_content(
+            content.content_id, asession=asession
+        )
+        if len(contents) < 1:
+            return (False, f"Content id `{content.content_id}` does not exist")
+
+    language = await get_language_from_db(content.language_id, asession)
+    if not language:
+        return (False, f"Language id `{content.language_id}` does not exist")
+
+    if not (
+        await is_content_language_combination_unique(
+            content.content_id, content.language_id, asession
+        )
+    ):
+        return (False, "Content and language combination already exists")
+
+    return (True, None)
 
 
-def _convert_record_to_schema(record: ContentDB) -> ContentRetrieve:
+def _convert_record_to_schema(record: ContentTextDB) -> ContentTextRetrieve:
     """
-    Convert db_models.ContentDB models to ContentRetrieve schema
+    Convert db_models.ContentDB models to ContentTextRetrieve schema
     """
-    content_retrieve = ContentRetrieve(
-        content_id=record.content_id,
+    content_retrieve = ContentTextRetrieve(
+        content_text_id=record.content_text_id,
         content_title=record.content_title,
         content_text=record.content_text,
-        content_language=record.content_language,
+        content_id=record.content_id,
+        language_id=record.language_id,
         content_metadata=record.content_metadata,
         created_datetime_utc=record.created_datetime_utc,
         updated_datetime_utc=record.updated_datetime_utc,
