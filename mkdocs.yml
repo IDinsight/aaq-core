@@ -5,6 +5,10 @@ repo_url: https://github.com/IDinsight/aaq-core
 copyright: "© 2024 IDinsight"
 extra:
   generator: false
+  home_page: home/
+  landing_text:
+    title: "Ask-a-Question"
+    description: "Documentation for the Ask-a-Question (AAQ) system."
   social:
     - icon: material/shield-lock
       link: https://www.idinsight.org/about/privacy-policy/
@@ -12,9 +16,9 @@ extra:
 
 nav:
   - Home:
-      - "": index.md
-      - Usage: usage.md
-      - Roadmap: roadmap.md
+      - "": home/index.md
+      - Usage: home/usage.md
+      - Roadmap: home/roadmap.md
 
   - Latest Updates:
       - blog/index.md
@@ -79,6 +83,7 @@ theme:
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
+  custom_dir: docs/overrides
   features:
     - navigation.tabs
     - navigation.tabs.sticky

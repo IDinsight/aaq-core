@@ -1,0 +1,23 @@
+<!-- Based on MarvinAI's landing page: https://github.com/PrefectHQ/marvin/tree/main/docs/overrides -->
+
+{% extends "main.html" %}
+{% block tabs %}
+<div>
+    <h1>{{ config.extra.landing_text.title }}</h1>
+    <p>{{ config.extra.landing_text.description }}</p>
+    <div>
+        <div>
+            <div>
+                <a href="{{ config.extra.home_page | url }}">
+                    Read the docs
+                </a>
+            </div>
+            <div>
+                <a href="{{ config.repo_url }}">
+                    Star us on Github <span aria-hidden="true">→</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
