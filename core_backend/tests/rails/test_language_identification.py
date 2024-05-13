@@ -1,3 +1,4 @@
+from asyncio import sleep
 from pathlib import Path
 from typing import List, Tuple
 
@@ -45,6 +46,8 @@ async def test_language_identification(
     )
     if expected_label not in available_languages:
         expected_label = "UNSUPPORTED"
+
+    await sleep(1)  # for gemini request limit
     _, response = await _identify_language(question, response)
 
     assert response.debug_info["original_language"] == expected_label
