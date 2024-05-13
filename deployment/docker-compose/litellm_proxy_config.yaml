@@ -16,12 +16,12 @@ model_list:
       api_key: "os.environ/OPENAI_API_KEY"
   - model_name: detect-language
     litellm_params:
-      model: gpt-4o
-      api_key: "os.environ/OPENAI_API_KEY"
+      model: gemini/gemini-pro
+      api_key: "os.environ/GEMINI_API_KEY"
   - model_name: on-off-topic
     litellm_params:
-      model: palm/chat-bison
-      api_key: "os.environ/PALM_API_KEY"
+      model: gemini/gemini-pro
+      api_key: "os.environ/GEMINI_API_KEY"
   - model_name: translate
     litellm_params:
       model: gemini/gemini-pro
@@ -36,8 +36,8 @@ model_list:
       api_key: "os.environ/GEMINI_API_KEY"
   - model_name: alignscore
     litellm_params:
-      model: gpt-4o
-      api_key: "os.environ/OPENAI_API_KEY"
+      model: gemini/gemini-1.5-pro-latest
+      api_key: "os.environ/GEMINI_API_KEY"
   - model_name: urgency-detection
     litellm_params:
       model: gemini/gemini-pro
