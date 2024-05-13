@@ -66,9 +66,7 @@ setup-llm-proxy:
 		--name litellm-proxy \
 		--rm \
 		-v "$(CURDIR)/deployment/docker-compose/litellm_proxy_config.yaml":/app/config.yaml \
-		-e OPENAI_API_KEY=$(OPENAI_API_KEY) \
-		-e EMBEDDINGS_API_KEY=$(EMBEDDINGS_API_KEY) \
-		-e EMBEDDINGS_ENDPOINT=$(EMBEDDINGS_ENDPOINT) \
+		--env-file "$(CURDIR)/deployment/docker-compose/.env" \
 		-p 4000:4000 \
 		-d ghcr.io/berriai/litellm:main-v1.34.6 \
 		--config /app/config.yaml --detailed_debug
