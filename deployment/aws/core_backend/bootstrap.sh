@@ -31,6 +31,7 @@ SECRET_USER_CREDENTIALS="${PROJECT_NAME}-${ENV}-user-credentials"
 SECRET_WHATSAPP_VERIFY="${PROJECT_NAME}-${ENV}-whatsapp-verify-token"
 SECRET_WEB_DB_CONNECTION="${PROJECT_NAME}-${ENV}-web-db-connection-details"
 SECRET_WHATSAPP="${PROJECT_NAME}-${ENV}-whatsapp-token"
+SECRET_LANGFUSE="${PROJECT_NAME}-${ENV}-langfuse-key"
 SECRET_QUESTION_ANSWER="${PROJECT_NAME}-${ENV}-question-answer"
 
 export NEXT_PUBLIC_BACKEND_URL="${NEXT_PUBLIC_API_URL}"
@@ -48,6 +49,8 @@ export USER2_API_KEY=$(get_secret_value ${SECRET_USER_CREDENTIALS} "user2_api ke
 
 export WHATSAPP_TOKEN=$(get_secret_value ${SECRET_WHATSAPP} "" "text")
 export WHATSAPP_VERIFY_TOKEN=$(get_secret_value ${SECRET_WHATSAPP_VERIFY} "" "text")
+export LANGFUSE_SECRET_KEY=$(get_secret_value ${SECRET_LANGFUSE} "secret_key" "text")
+export LANGFUSE_PUBLIC_KEY=$(get_secret_value ${SECRET_LANGFUSE} "public_key" "text")
 
 # if using a nginx reverse proxy, set path here
 export BACKEND_ROOT_PATH="/api"

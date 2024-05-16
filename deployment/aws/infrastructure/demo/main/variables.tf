@@ -202,9 +202,19 @@ variable "account_id" {
   default     = ""
 }
 
-variable "open_ai_key_secret_name" {
+variable "openai_key_secret_name" {
   type        = string
-  description = "value for the open ai key secret name"
+  description = "value for the OpenAI API key secret name"
+}
+
+variable "gemini_key_secret_name" {
+  type        = string
+  description = "value for the Gemini API key secret name"
+}
+
+variable "langfuse_key_secret_name" {
+  type        = string
+  description = "value for the Langfuse key secret name"
 }
 
 variable "question_answer_secret_name" {

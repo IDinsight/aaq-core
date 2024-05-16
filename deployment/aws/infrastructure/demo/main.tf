@@ -27,7 +27,9 @@ module "main" {
   jwt_secret_secret_name            = "${var.project_name}-${var.environment}-jwt-secret"
   content_access_secret_name        = "${var.project_name}-${var.environment}-content-access"
   whatsapp_token_secret_name        = "${var.project_name}-${var.environment}-whatsapp-token"
-  open_ai_key_secret_name           = "${var.project_name}-${var.environment}-open-ai-key"
+  openai_key_secret_name            = "${var.project_name}-${var.environment}-openai-key"
+  gemini_key_secret_name            = "${var.project_name}-${var.environment}-gemini-key"
+  langfuse_key_secret_name          = "${var.project_name}-${var.environment}-langfuse-key"
   question_answer_secret_name       = "${var.project_name}-${var.environment}-question-answer"
   whatsapp_verify_token_secret_name = "${var.project_name}-${var.environment}-whatsapp-verify-token"
   aws_region                        = var.aws_region

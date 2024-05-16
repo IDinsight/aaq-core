@@ -217,7 +217,7 @@ resource_usage:
     monthly_requests: 10 # Monthly API requests to Secrets Manager.
   module.main.aws_secretsmanager_secret.jwt_secret:
     monthly_requests: 10 # Monthly API requests to Secrets Manager.
-  module.main.aws_secretsmanager_secret.open_ai_key_secret:
+  module.main.aws_secretsmanager_secret.openai_key_secret:
     monthly_requests: 10 # Monthly API requests to Secrets Manager.
   module.main.aws_secretsmanager_secret.question_answer_secret:
     monthly_requests: 10 # Monthly API requests to Secrets Manager.
