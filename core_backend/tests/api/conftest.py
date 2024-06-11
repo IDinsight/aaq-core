@@ -1,12 +1,15 @@
 import json
+import random
 from collections import namedtuple
 from datetime import datetime
-from typing import Any, Dict, Generator, List, Tuple
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 import httpx
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
+from pytest import Item
+from pytest_asyncio import is_async_test
 from sqlalchemy.orm import Session
 
 from core_backend.app import create_app
@@ -20,13 +23,20 @@ from core_backend.app.contents.config import PGVECTOR_VECTOR_SIZE
 from core_backend.app.contents.models import ContentDB
 from core_backend.app.database import get_session
 from core_backend.app.llm_call import process_input, process_output
-from core_backend.app.llm_call.llm_prompts import AlignmentScore, IdentifiedLanguage
-from core_backend.app.question_answer.schemas import (
-    ResultState,
-    UserQueryRefined,
-    UserQueryResponse,
+from core_backend.app.llm_call.llm_prompts import (
+    RAG,
+    AlignmentScore,
+    IdentifiedLanguage,
 )
+from core_backend.app.question_answer.schemas import (
+    QueryRefined,
+    QueryResponse,
+    ResultState,
+)
+from core_backend.app.question_dashboard.schemas import QuestionDashBoard
 from core_backend.app.urgency_rules.models import UrgencyRuleDB
+from core_backend.app.users.models import UserDB
+from core_backend.app.utils import get_key_hash, get_password_salted_hash
 
 # Define namedtuples for the embedding endpoint
 EmbeddingData = namedtuple("EmbeddingData", "data")
@@ -36,6 +46,23 @@ EmbeddingValues = namedtuple("EmbeddingValues", "embedding")
 CompletionData = namedtuple("CompletionData", "choices")
 CompletionChoice = namedtuple("CompletionChoice", "message")
 CompletionMessage = namedtuple("CompletionMessage", "content")
+
+
+TEST_USER_ID = None  # updated by "user" fixture. Required for some tests.
+TEST_USERNAME = "test_username"
+TEST_PASSWORD = "test_password"
+TEST_USER_API_KEY = "test_api_key"
+
+TEST_USERNAME_2 = "test_username_2"
+TEST_PASSWORD_2 = "test_password_2"
+TEST_USER_API_KEY_2 = "test_api_key_2"
+
+
+def pytest_collection_modifyitems(items: List[Item]) -> None:
+    pytest_asyncio_tests = (item for item in items if is_async_test(item))
+    session_scope_marker = pytest.mark.asyncio(scope="session")
+    for async_test in pytest_asyncio_tests:
+        async_test.add_marker(session_scope_marker, append=False)
 
 
 @pytest.fixture(scope="session")
@@ -49,6 +76,31 @@ def db_session() -> Generator[Session, None, None]:
     finally:
         session.rollback()
         next(session_gen, None)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def user(client: TestClient, db_session: Session) -> None:
+    global TEST_USER_ID
+    user1_db = UserDB(
+        username=TEST_USERNAME,
+        hashed_password=get_password_salted_hash(TEST_PASSWORD),
+        hashed_api_key=get_key_hash(TEST_USER_API_KEY),
+        created_datetime_utc=datetime.utcnow(),
+        updated_datetime_utc=datetime.utcnow(),
+    )
+    user2_db = UserDB(
+        username=TEST_USERNAME_2,
+        hashed_password=get_key_hash(TEST_PASSWORD_2),
+        hashed_api_key=get_key_hash(TEST_USER_API_KEY_2),
+        created_datetime_utc=datetime.utcnow(),
+        updated_datetime_utc=datetime.utcnow(),
+    )
+    db_session.add(user1_db)
+    db_session.add(user2_db)
+    db_session.commit()
+
+    # update the TEST_USER_ID global variable
+    TEST_USER_ID = user1_db.user_id
 
 
 @pytest.fixture(scope="session")
@@ -67,6 +119,7 @@ async def faq_contents(client: TestClient, db_session: Session) -> None:
         )
         content_db = ContentDB(
             content_id=i,
+            user_id=TEST_USER_ID,
             content_embedding=content_embedding,
             content_title=content["content_title"],
             content_text=content["content_text"],
@@ -79,6 +132,31 @@ async def faq_contents(client: TestClient, db_session: Session) -> None:
 
     db_session.add_all(contents)
     db_session.commit()
+
+
+@pytest.fixture(
+    scope="module",
+    params=[
+        ("Tag1"),
+        ("tag2",),
+    ],
+)
+def existing_tag_id(
+    request: pytest.FixtureRequest, client: TestClient, fullaccess_token: str
+) -> Generator[str, None, None]:
+    response = client.post(
+        "/tag",
+        headers={"Authorization": f"Bearer {fullaccess_token}"},
+        json={
+            "tag_name": request.param[0],
+        },
+    )
+    tag_id = response.json()["tag_id"]
+    yield tag_id
+    client.delete(
+        f"/tag/{tag_id}",
+        headers={"Authorization": f"Bearer {fullaccess_token}"},
+    )
 
 
 @pytest.fixture(scope="session")
@@ -97,6 +175,7 @@ async def urgency_rules(client: TestClient, db_session: Session) -> int:
 
         rule_db = UrgencyRuleDB(
             urgency_rule_id=i,
+            user_id=TEST_USER_ID,
             urgency_rule_text=rule["urgency_rule_text"],
             urgency_rule_vector=rule_embedding,
             urgency_rule_metadata=rule.get("urgency_rule_metadata", {}),
@@ -156,8 +235,8 @@ def patch_llm_call(monkeysession: pytest.MonkeyPatch) -> None:
     )
 
 
-async def patched_llm_rag_answer(*args: Any, **kwargs: Any) -> str:
-    return "monkeypatched_llm_response"
+async def patched_llm_rag_answer(*args: Any, **kwargs: Any) -> RAG:
+    return RAG(answer="patched llm response", extracted_info=[])
 
 
 async def mock_get_align_score(*args: Any, **kwargs: Any) -> AlignmentScore:
@@ -165,13 +244,14 @@ async def mock_get_align_score(*args: Any, **kwargs: Any) -> AlignmentScore:
 
 
 async def mock_return_args(
-    question: UserQueryRefined, response: UserQueryResponse
-) -> Tuple[UserQueryRefined, UserQueryResponse]:
+    question: QueryRefined, response: QueryResponse, metadata: Optional[dict]
+) -> Tuple[QueryRefined, QueryResponse]:
     return question, response
 
 
-async def mock_detect_urgency(urgency_rule: str, message: str) -> Dict[str, Any]:
-
+async def mock_detect_urgency(
+    urgency_rule: str, message: str, metadata: Optional[dict]
+) -> Dict[str, Any]:
     return {
         "statement": urgency_rule,
         "probability": 0.7,
@@ -180,8 +260,8 @@ async def mock_detect_urgency(urgency_rule: str, message: str) -> Dict[str, Any]
 
 
 async def mock_identify_language(
-    question: UserQueryRefined, response: UserQueryResponse
-) -> Tuple[UserQueryRefined, UserQueryResponse]:
+    question: QueryRefined, response: QueryResponse, metadata: Optional[dict]
+) -> Tuple[QueryRefined, QueryResponse]:
     """
     Monkeypatch call to LLM language identification service
     """
@@ -192,8 +272,8 @@ async def mock_identify_language(
 
 
 async def mock_translate_question(
-    question: UserQueryRefined, response: UserQueryResponse
-) -> Tuple[UserQueryRefined, UserQueryResponse]:
+    question: QueryRefined, response: QueryResponse, metadata: Optional[dict]
+) -> Tuple[QueryRefined, QueryResponse]:
     """
     Monkeypatch call to LLM translation service
     """
@@ -222,20 +302,31 @@ async def async_fake_embedding(*arg: str, **kwargs: str) -> List[float]:
     return embedding_list
 
 
+async def mock_dashboard_stats(*arg: str, **kwargs: str) -> QuestionDashBoard:
+    """
+    Replicates question_dashboard.models.get_dashboard_stats but generates random
+    statistics.
+    """
+    return QuestionDashBoard(
+        six_months_question=[random.randint(0, 100) for _ in range(6)],
+        sis_months_upvote=[random.randint(0, 100) for _ in range(6)],
+    )
+
+
 @pytest.fixture(scope="session")
 def fullaccess_token() -> str:
     """
     Returns a token with full access
     """
-    return create_access_token("fullaccess")
+    return create_access_token(TEST_USERNAME)
 
 
 @pytest.fixture(scope="session")
-def readonly_token() -> str:
+def fullaccess_token_user2() -> str:
     """
-    Returns a token with readonly access
+    Returns a token with full access
     """
-    return create_access_token("readonly")
+    return create_access_token(TEST_USERNAME_2)
 
 
 @pytest.fixture(scope="session", autouse=True)

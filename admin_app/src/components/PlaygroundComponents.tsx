@@ -31,7 +31,7 @@ import SendIcon from "@mui/icons-material/Send";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import TextField from "@mui/material/TextField";
 
-type QueryType = "embeddings-search" | "llm-response";
+type QueryType = "embeddings-search" | "llm-response" | "urgency-detection";
 
 interface ResponseSummary {
   index: string;
@@ -47,6 +47,7 @@ interface BaseMessage {
 interface UserMessage extends BaseMessage {
   type: "question";
   content: string;
+  queryType: string;
 }
 
 interface ResponseMessage extends BaseMessage {
@@ -95,7 +96,6 @@ const PersistentSearchBar = ({
           display: "flex",
           background: "white",
           boxShadow: "0 -2px 10px rgba(0,0,0,0.2)",
-
           borderRadius: "12px",
         }}
       >
@@ -146,6 +146,9 @@ const PersistentSearchBar = ({
                   </MenuItem>
                   <MenuItem value="llm-response">
                     <Typography variant="caption">LLM Search</Typography>
+                  </MenuItem>
+                  <MenuItem value="urgency-detection">
+                    <Typography variant="caption">Urgency Detection</Typography>
                   </MenuItem>
                 </Select>
 
@@ -306,6 +309,16 @@ const MessageBox = (message: Message) => {
           justifyContent: "center", // Vertically centers the content if there's extra space
         }}
       >
+        {message.type === "question" && (
+          <Typography
+            component={"span"}
+            variant="body2"
+            align="left"
+            color="grey"
+          >
+            {`${(message as UserMessage).queryType}`}
+          </Typography>
+        )}
         <Typography
           component={"span"}
           variant="body1"
@@ -416,7 +429,17 @@ const ApiKeyDialog = ({
     >
       <DialogContent>
         <DialogContentText sx={{ my: 2 }}>
-          Please enter the key to access the search APIs.
+          {
+            "Please enter the API key to access the retrieval APIs. If you don't have one yet, head to "
+          }
+          <Link
+            href="/integrations"
+            color="primary"
+            sx={{ fontWeight: "bold" }}
+          >
+            Integrations
+          </Link>
+          {" to generate one."}
         </DialogContentText>
         <TextField
           autoFocus

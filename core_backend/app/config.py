@@ -24,8 +24,8 @@ LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY", "dummy-key")
 # for all of its endpoints.
 LITELLM_MODEL_EMBEDDING = os.environ.get("LITELLM_MODEL_EMBEDDING", "openai/embeddings")
 LITELLM_MODEL_DEFAULT = os.environ.get("LITELLM_MODEL_DEFAULT", "openai/default")
-LITELLM_MODEL_SUMMARIZATION = os.environ.get(
-    "LITELLM_MODEL_SUMMARIZATION", "openai/generate-response"
+LITELLM_MODEL_GENERATION = os.environ.get(
+    "LITELLM_MODEL_GENERATION", "openai/generate-response"
 )
 LITELLM_MODEL_LANGUAGE_DETECT = os.environ.get(
     "LITELLM_MODEL_LANGUAGE_DETECT", "openai/detect-language"
@@ -59,3 +59,13 @@ ALIGN_SCORE_API = os.environ.get("ALIGN_SCORE_API", "")
 
 # Backend paths
 BACKEND_ROOT_PATH = os.environ.get("BACKEND_ROOT_PATH", "")
+
+# Embeddings variables
+HUGGINGFACE_MODEL = os.environ.get("HUGGINGFACE_MODEL", "thenlper/gte-large")
+EMBEDDINGS_API_KEY = os.environ.get("EMBEDDINGS_API_KEY", "add-token")
+EMBEDDINGS_ENDPOINT = os.environ.get(
+    "EMBEDDINGS_ENDPOINT", "http://host.docker.internal:8080"
+)
+
+# Logging
+LANGFUSE = os.environ.get("LANGFUSE", "False")

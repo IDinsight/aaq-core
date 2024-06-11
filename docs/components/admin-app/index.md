@@ -1,10 +1,8 @@
 # The Admin App
 
-
-
 <div class="grid cards" markdown>
 
--   :material-database:{ .lg .middle .red} __Manage content__
+- :material-database:{ .lg .middle .red} __Manage content__
 
     ---
 
@@ -12,7 +10,15 @@
 
     [:octicons-arrow-right-24: More info](./manage-content.md)
 
--   :material-chat-question:{ .lg .middle } __Playground__
+- :material-database-eye:{ .lg .middle .red} __Manage urgency rules__
+
+    ---
+
+    Allows you to view, create, edit, or delete urgency rules.
+
+    [:octicons-arrow-right-24: More info](./manage-urgency-rules.md)
+
+- :material-chat-question:{ .lg .middle } __Playground__
 
     ---
 
@@ -21,20 +27,19 @@
 
     [:octicons-arrow-right-24: More info](./playground.md)
 
--   :material-view-dashboard:{ .lg .middle } __Content Manager's Dashboard (Coming Soon)__
+- :material-view-dashboard:{ .lg .middle } __Content Manager's Dashboard__
 
     ---
 
     Allows you to see statistices like which content is most frequently being
     used, or the feedback from users on responses provided by the service.
 
--   :material-monitor-dashboard: __Engineer's Dashboard (Coming Soon)__
+- :material-monitor-dashboard: __Engineer's Dashboard (Coming Soon)__
 
     ---
 
     Shows you technical performance of the application like uptime, throughput,
     response time, and the number of responses by HTTP response codes
-
 
 </div>
 
@@ -47,8 +52,3 @@ If you have the [application running](../../deployment/quick-setup.md), you can 
 or if you are using the [dev](../../develop/setup.md) setup:
 
     http://localhost:3000/
-
-### Access Levels
-
-There are two logins - `readonly` and `fullaccess` with different access levels.
-See [Access Level](./access-level.md) for more details.

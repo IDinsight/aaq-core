@@ -3,7 +3,7 @@ These are functions to check the LLM response
 """
 
 from functools import wraps
-from typing import Any, Callable, TypedDict
+from typing import Any, Callable, Optional, TypedDict
 
 from pydantic import ValidationError
 
@@ -14,14 +14,14 @@ from ..config import (
     LITELLM_MODEL_ALIGNSCORE,
 )
 from ..question_answer.schemas import (
+    QueryRefined,
+    QueryResponse,
+    QueryResponseError,
     ResultState,
-    UserQueryRefined,
-    UserQueryResponse,
-    UserQueryResponseError,
 )
-from ..utils import get_http_client, setup_logger
+from ..utils import create_langfuse_metadata, get_http_client, setup_logger
 from .llm_prompts import AlignmentScore
-from .utils import _ask_llm_async
+from .utils import _ask_llm_async, remove_json_markdown
 
 logger = setup_logger("OUTPUT RAILS")
 
@@ -42,11 +42,11 @@ def check_align_score__after(func: Callable) -> Callable:
 
     @wraps(func)
     async def wrapper(
-        question: UserQueryRefined,
-        response: UserQueryResponse | UserQueryResponseError,
+        question: QueryRefined,
+        response: QueryResponse | QueryResponseError,
         *args: Any,
         **kwargs: Any,
-    ) -> UserQueryResponse | UserQueryResponseError:
+    ) -> QueryResponse | QueryResponseError:
         """
         Check the alignment score
         """
@@ -54,7 +54,7 @@ def check_align_score__after(func: Callable) -> Callable:
         llm_response = await func(question, response, *args, **kwargs)
 
         if (
-            isinstance(llm_response, UserQueryResponseError)
+            isinstance(llm_response, QueryResponseError)
             or llm_response.state == ResultState.ERROR
         ):
             return llm_response
@@ -74,8 +74,8 @@ def check_align_score__after(func: Callable) -> Callable:
 
 
 async def _check_align_score(
-    llm_response: UserQueryResponse,
-) -> UserQueryResponse:
+    llm_response: QueryResponse,
+) -> QueryResponse:
     """
     Check the alignment score
     """
@@ -97,7 +97,8 @@ async def _check_align_score(
         else:
             raise ValueError("Method is AlignScore but ALIGN_SCORE_API is not set.")
     elif ALIGN_SCORE_METHOD == "LLM":
-        align_score = await _get_llm_align_score(align_score_data)
+        metadata = create_langfuse_metadata(query_id=llm_response.query_id)
+        align_score = await _get_llm_align_score(align_score_data, metadata=metadata)
     else:
         raise NotImplementedError(f"Unknown method {ALIGN_SCORE_METHOD}")
 
@@ -146,7 +147,9 @@ async def _get_alignScore_score(
     return alignment_score
 
 
-async def _get_llm_align_score(align_score_data: AlignScoreData) -> AlignmentScore:
+async def _get_llm_align_score(
+    align_score_data: AlignScoreData, metadata: Optional[dict] = None
+) -> AlignmentScore:
     """
     Get the alignment score from the LLM
     """
@@ -155,9 +158,12 @@ async def _get_llm_align_score(align_score_data: AlignScoreData) -> AlignmentSco
         question=align_score_data["claim"],
         prompt=prompt,
         litellm_model=LITELLM_MODEL_ALIGNSCORE,
+        metadata=metadata,
+        json=True,
     )
 
     try:
+        result = remove_json_markdown(result)
         alignment_score = AlignmentScore.model_validate_json(result)
     except ValidationError as e:
         logger.error(f"LLM alignment score response is not valid json: {e}")
@@ -168,7 +174,7 @@ async def _get_llm_align_score(align_score_data: AlignScoreData) -> AlignmentSco
     return alignment_score
 
 
-def _build_evidence(llm_response: UserQueryResponse) -> str:
+def _build_evidence(llm_response: QueryResponse) -> str:
     """
     Build the evidence used by the LLM response
     """

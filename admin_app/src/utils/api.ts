@@ -1,4 +1,4 @@
-const BACKEND_ROOT_PATH: string =
+const NEXT_PUBLIC_BACKEND_URL: string =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
 interface ContentBody {
@@ -8,14 +8,42 @@ interface ContentBody {
   content_metadata: Record<string, unknown>;
 }
 
-const getContentList = async (token: string) => {
-  return fetch(`${BACKEND_ROOT_PATH}/content/`, {
-    method: "GET",
+const getNewAPIKey = async (token: string) => {
+  return fetch(`${NEXT_PUBLIC_BACKEND_URL}/key/`, {
+    method: "PUT",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
   }).then((response) => {
+    if (response.ok) {
+      let resp = response.json();
+      return resp;
+    } else {
+      throw new Error("Error rotating API key");
+    }
+  });
+};
+
+const getContentList = async ({
+  token,
+  skip = 0,
+  limit = 200,
+}: {
+  token: string;
+  skip?: number;
+  limit?: number;
+}) => {
+  return fetch(
+    `${NEXT_PUBLIC_BACKEND_URL}/content/?skip=${skip}&limit=${limit}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  ).then((response) => {
     if (response.ok) {
       let resp = response.json();
       return resp;
@@ -26,7 +54,7 @@ const getContentList = async (token: string) => {
 };
 
 const getContent = async (content_id: number, token: string) => {
-  return fetch(`${BACKEND_ROOT_PATH}/content/${content_id}`, {
+  return fetch(`${NEXT_PUBLIC_BACKEND_URL}/content/${content_id}`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -43,7 +71,7 @@ const getContent = async (content_id: number, token: string) => {
 };
 
 const deleteContent = async (content_id: number, token: string) => {
-  return fetch(`${BACKEND_ROOT_PATH}/content/${content_id}`, {
+  return fetch(`${NEXT_PUBLIC_BACKEND_URL}/content/${content_id}`, {
     method: "DELETE",
     headers: {
       "Content-Type": "application/json",
@@ -64,7 +92,7 @@ const editContent = async (
   content: ContentBody,
   token: string,
 ) => {
-  return fetch(`${BACKEND_ROOT_PATH}/content/${content_id}`, {
+  return fetch(`${NEXT_PUBLIC_BACKEND_URL}/content/${content_id}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -82,7 +110,7 @@ const editContent = async (
 };
 
 const createContent = async (content: ContentBody, token: string) => {
-  return fetch(`${BACKEND_ROOT_PATH}/content/`, {
+  return fetch(`${NEXT_PUBLIC_BACKEND_URL}/content/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -99,11 +127,85 @@ const createContent = async (content: ContentBody, token: string) => {
   });
 };
 
+const getUrgencyRuleList = async (token: string) => {
+  return fetch(`${NEXT_PUBLIC_BACKEND_URL}/urgency-rules/`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  }).then((response) => {
+    if (response.ok) {
+      let resp = response.json();
+      return resp;
+    } else {
+      throw new Error("Error fetching urgency rule list");
+    }
+  });
+};
+
+const addUrgencyRule = async (rule_text: string, token: string) => {
+  return fetch(`${NEXT_PUBLIC_BACKEND_URL}/urgency-rules/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ urgency_rule_text: rule_text }),
+  }).then((response) => {
+    if (response.ok) {
+      let resp = response.json();
+      return resp;
+    } else {
+      throw new Error("Error adding urgency rule");
+    }
+  });
+};
+
+const updateUrgencyRule = async (
+  rule_id: number,
+  rule_text: string,
+  token: string,
+) => {
+  return fetch(`${NEXT_PUBLIC_BACKEND_URL}/urgency-rules/${rule_id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ urgency_rule_text: rule_text }),
+  }).then((response) => {
+    if (response.ok) {
+      let resp = response.json();
+      return resp;
+    } else {
+      throw new Error("Error updating urgency rule");
+    }
+  });
+};
+
+const deleteUrgencyRule = async (rule_id: number, token: string) => {
+  return fetch(`${NEXT_PUBLIC_BACKEND_URL}/urgency-rules/${rule_id}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  }).then((response) => {
+    if (response.ok) {
+      let resp = response.json();
+      return resp;
+    } else {
+      throw new Error("Error deleting urgency rule");
+    }
+  });
+};
+
 const getLoginToken = async (username: string, password: string) => {
   const formData = new FormData();
   formData.append("username", username);
   formData.append("password", password);
-  return fetch(`${BACKEND_ROOT_PATH}/login`, {
+  return fetch(`${NEXT_PUBLIC_BACKEND_URL}/login`, {
     method: "POST",
     body: formData,
   }).then((response) => {
@@ -116,8 +218,28 @@ const getLoginToken = async (username: string, password: string) => {
   });
 };
 
+const getGoogleLoginToken = async (idToken: {
+  client_id: string;
+  credential: string;
+}) => {
+  return fetch(`${NEXT_PUBLIC_BACKEND_URL}/login-google`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(idToken),
+  }).then((response) => {
+    if (response.ok) {
+      let resp = response.json();
+      return resp;
+    } else {
+      throw new Error("Error fetching login token");
+    }
+  });
+};
+
 const getEmbeddingsSearch = async (search: string, token: string) => {
-  const embeddingUrl = `${BACKEND_ROOT_PATH}/embeddings-search`;
+  const embeddingUrl = `${NEXT_PUBLIC_BACKEND_URL}/embeddings-search`;
   return fetch(embeddingUrl, {
     method: "POST",
     headers: {
@@ -127,27 +249,19 @@ const getEmbeddingsSearch = async (search: string, token: string) => {
     body: JSON.stringify({ query_text: search }),
   })
     .then((response) => {
-      if (response.ok) {
-        let resp = response.json();
-        return resp;
-      } else {
-        return response.json().then((errData) => {
-          throw new Error(
-            `Error fetching embeddings response: ${errData.message} Status: ${response.status}`,
-          );
-        });
-      }
+      return response.json().then((data) => {
+        const responseWithStatus = { status: response.status, ...data };
+        return responseWithStatus;
+      });
     })
     .catch((error) => {
-      throw new Error(
-        `Error POSTING to embedding search URL at ${embeddingUrl}. ` +
-          error.message,
-      );
+      console.error("Error:", error);
+      throw error;
     });
 };
 
 const getLLMResponse = async (search: string, token: string) => {
-  const llmResponseUrl = `${BACKEND_ROOT_PATH}/llm-response`;
+  const llmResponseUrl = `${NEXT_PUBLIC_BACKEND_URL}/llm-response`;
   return fetch(llmResponseUrl, {
     method: "POST",
     headers: {
@@ -157,32 +271,116 @@ const getLLMResponse = async (search: string, token: string) => {
     body: JSON.stringify({ query_text: search }),
   })
     .then((response) => {
+      return response.json().then((data) => {
+        const responseWithStatus = { status: response.status, ...data };
+        return responseWithStatus;
+      });
+    })
+    .catch((error) => {
+      console.error("Error:", error);
+      throw error;
+    });
+};
+
+const getQuestionStats = async (token: string) => {
+  return fetch(`${NEXT_PUBLIC_BACKEND_URL}/dashboard/question_stats`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  }).then((response) => {
+    if (response.ok) {
+      let resp = response.json();
+      return resp;
+    } else {
+      throw new Error("Error fetching questions statistics");
+    }
+  });
+};
+
+const getUrgencyDetection = async (search: string, token: string) => {
+  const urgencyDetectionUrl = `${NEXT_PUBLIC_BACKEND_URL}/urgency-detect`;
+  return fetch(urgencyDetectionUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ message_text: search }),
+  })
+    .then((response) => {
       if (response.ok) {
         let resp = response.json();
         return resp;
       } else {
         return response.json().then((errData) => {
           throw new Error(
-            `Error fetching llm response: ${errData.message} Status: ${response.status}`,
+            `Error fetching urgency detection response: ${errData.message} Status: ${response.status}`,
           );
         });
       }
     })
     .catch((error) => {
       throw new Error(
-        `Error POSTING to LLM search URL at ${llmResponseUrl}. ` +
+        `Error POSTING to urgency detection URL at ${urgencyDetectionUrl}. ` +
           error.message,
       );
     });
 };
 
+const createTag = async (tag: string, token: string) => {
+  return fetch(`${NEXT_PUBLIC_BACKEND_URL}/tag/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ tag_name: tag }),
+  }).then((response) => {
+    if (response.ok) {
+      let resp = response.json();
+      return resp;
+    } else {
+      throw new Error("Error creating tag");
+    }
+  });
+};
+
+const getTagList = async (token: string) => {
+  return fetch(`${NEXT_PUBLIC_BACKEND_URL}/tag/`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  }).then((response) => {
+    if (response.ok) {
+      let resp = response.json();
+      return resp;
+    } else {
+      throw new Error("Error fetching tag list");
+    }
+  });
+};
+
 export const apiCalls = {
+  getNewAPIKey,
   getContentList,
   getContent,
   deleteContent,
   editContent,
   createContent,
+  getUrgencyRuleList,
+  addUrgencyRule,
+  updateUrgencyRule,
+  deleteUrgencyRule,
   getLoginToken,
+  getGoogleLoginToken,
   getEmbeddingsSearch,
   getLLMResponse,
+  getQuestionStats,
+  getUrgencyDetection,
+  createTag,
+  getTagList,
 };

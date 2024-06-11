@@ -4,9 +4,10 @@ from fastapi import APIRouter, Depends
 from fastapi.exceptions import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth.dependencies import get_current_fullaccess_user, get_current_readonly_user
-from ..auth.schemas import AuthenticatedUser
+from ..auth.dependencies import get_current_user
 from ..database import get_async_session
+from ..tags.models import validate_tags
+from ..users.models import UserDB
 from ..utils import setup_logger
 from .models import (
     ContentDB,
@@ -25,17 +26,25 @@ logger = setup_logger()
 @router.post("/", response_model=ContentRetrieve)
 async def create_content(
     content: ContentCreate,
-    full_access_user: Annotated[
-        AuthenticatedUser, Depends(get_current_fullaccess_user)
-    ],
+    user_db: Annotated[UserDB, Depends(get_current_user)],
     asession: AsyncSession = Depends(get_async_session),
 ) -> ContentRetrieve | None:
     """
     Create content endpoint. Calls embedding model to get content embedding and
-    upserts it to PG database
+    inserts it to PG database
     """
+    is_tag_valid, content_tags = await validate_tags(
+        user_db.user_id, content.content_tags, asession
+    )
+    if not is_tag_valid:
+        raise HTTPException(status_code=400, detail=f"Invalid tag ids: {content_tags}")
+    content.content_tags = content_tags
 
-    content_db = await save_content_to_db(content, asession)
+    content_db = await save_content_to_db(
+        user_id=user_db.user_id,
+        content=content,
+        asession=asession,
+    )
     return _convert_record_to_schema(content_db)
 
 
@@ -43,27 +52,35 @@ async def create_content(
 async def edit_content(
     content_id: int,
     content: ContentCreate,
-    full_access_user: Annotated[
-        AuthenticatedUser, Depends(get_current_fullaccess_user)
-    ],
+    user_db: Annotated[UserDB, Depends(get_current_user)],
     asession: AsyncSession = Depends(get_async_session),
 ) -> ContentRetrieve:
     """
     Edit content endpoint
     """
+
     old_content = await get_content_from_db(
-        content_id,
-        asession,
+        user_id=user_db.user_id,
+        content_id=content_id,
+        asession=asession,
     )
 
     if not old_content:
         raise HTTPException(
             status_code=404, detail=f"Content id `{content_id}` not found"
         )
+
+    is_tag_valid, content_tags = await validate_tags(
+        user_db.user_id, content.content_tags, asession
+    )
+    if not is_tag_valid:
+        raise HTTPException(status_code=400, detail=f"Invalid tag ids: {content_tags}")
+    content.content_tags = content_tags
     updated_content = await update_content_in_db(
-        content_id,
-        content,
-        asession,
+        user_id=user_db.user_id,
+        content_id=content_id,
+        content=content,
+        asession=asession,
     )
 
     return _convert_record_to_schema(updated_content)
@@ -71,9 +88,7 @@ async def edit_content(
 
 @router.get("/", response_model=list[ContentRetrieve])
 async def retrieve_content(
-    readonly_access_user: Annotated[
-        AuthenticatedUser, Depends(get_current_readonly_user)
-    ],
+    user_db: Annotated[UserDB, Depends(get_current_user)],
     skip: int = 0,
     limit: int = 50,
     asession: AsyncSession = Depends(get_async_session),
@@ -81,8 +96,12 @@ async def retrieve_content(
     """
     Retrieve all content endpoint
     """
+
     records = await get_list_of_content_from_db(
-        offset=skip, limit=limit, asession=asession
+        user_id=user_db.user_id,
+        offset=skip,
+        limit=limit,
+        asession=asession,
     )
     contents = [_convert_record_to_schema(c) for c in records]
     return contents
@@ -91,39 +110,45 @@ async def retrieve_content(
 @router.delete("/{content_id}")
 async def delete_content(
     content_id: int,
-    full_access_user: Annotated[
-        AuthenticatedUser, Depends(get_current_fullaccess_user)
-    ],
+    user_db: Annotated[UserDB, Depends(get_current_user)],
     asession: AsyncSession = Depends(get_async_session),
 ) -> None:
     """
     Delete content endpoint
     """
+
     record = await get_content_from_db(
-        content_id,
-        asession,
+        user_id=user_db.user_id,
+        content_id=content_id,
+        asession=asession,
     )
 
     if not record:
         raise HTTPException(
             status_code=404, detail=f"Content id `{content_id}` not found"
         )
-    await delete_content_from_db(content_id, asession)
+    await delete_content_from_db(
+        user_id=user_db.user_id,
+        content_id=content_id,
+        asession=asession,
+    )
 
 
 @router.get("/{content_id}", response_model=ContentRetrieve)
 async def retrieve_content_by_id(
     content_id: int,
-    readonly_access_user: Annotated[
-        AuthenticatedUser, Depends(get_current_readonly_user)
-    ],
+    user_db: Annotated[UserDB, Depends(get_current_user)],
     asession: AsyncSession = Depends(get_async_session),
 ) -> ContentRetrieve:
     """
     Retrieve content by id endpoint
     """
 
-    record = await get_content_from_db(content_id, asession)
+    record = await get_content_from_db(
+        user_id=user_db.user_id,
+        content_id=content_id,
+        asession=asession,
+    )
 
     if not record:
         raise HTTPException(
@@ -135,13 +160,16 @@ async def retrieve_content_by_id(
 
 def _convert_record_to_schema(record: ContentDB) -> ContentRetrieve:
     """
-    Convert db_models.ContentDB models to ContentRetrieve schema
+    Convert models.ContentDB models to ContentRetrieve schema
     """
+
     content_retrieve = ContentRetrieve(
         content_id=record.content_id,
+        user_id=record.user_id,
         content_title=record.content_title,
         content_text=record.content_text,
         content_language=record.content_language,
+        content_tags=[tag.tag_id for tag in record.content_tags],
         positive_votes=record.positive_votes,
         negative_votes=record.negative_votes,
         content_metadata=record.content_metadata,

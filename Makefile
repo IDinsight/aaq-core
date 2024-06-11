@@ -28,10 +28,16 @@ fresh-env :
 	fi
 
 # Dev requirements
-setup-dev: setup-db setup-llm-proxy
+setup-dev: setup-db add-users-to-db setup-llm-proxy
 teardown-dev: teardown-db teardown-llm-proxy
 
 ## Helper targets
+
+# Add users to db
+add-users-to-db:
+	$(CONDA_ACTIVATE) $(PROJECT_NAME); \
+	python core_backend/add_users_to_db.py
+
 # Dev db
 setup-db:
 	-@docker stop postgres-local
@@ -51,8 +57,8 @@ teardown-db:
 
 # Dev LiteLLM Proxy server
 setup-llm-proxy:
-	-@docker stop llm-proxy
-	-@docker rm llm-proxy
+	-@docker stop litellm-proxy
+	-@docker rm litellm-proxy
 	@docker system prune -f
 	@sleep 2
 	@docker pull ghcr.io/berriai/litellm:main-v1.34.6
@@ -61,10 +67,31 @@ setup-llm-proxy:
 		--rm \
 		-v "$(CURDIR)/deployment/docker-compose/litellm_proxy_config.yaml":/app/config.yaml \
 		-e OPENAI_API_KEY=$(OPENAI_API_KEY) \
+		-e GEMINI_API_KEY=$(GEMINI_API_KEY) \
+		-e EMBEDDINGS_API_KEY=$(EMBEDDINGS_API_KEY) \
+		-e EMBEDDINGS_ENDPOINT=$(EMBEDDINGS_ENDPOINT) \
 		-p 4000:4000 \
 		-d ghcr.io/berriai/litellm:main-v1.34.6 \
 		--config /app/config.yaml --detailed_debug
 
+
 teardown-llm-proxy:
 	@docker stop litellm-proxy
 	@docker rm litellm-proxy
+
+setup-embeddings:
+	-@docker stop embeddings
+	-@docker rm embeddings
+	@docker system prune -f
+	@sleep 2
+	@docker build -t embeddings ./optional_components/embeddings
+	@docker run \
+		--name embeddings \
+		-e EMBEDDINGS_API_KEY=$(EMBEDDINGS_API_KEY) \
+		-e HUGGINGFACE_MODEL=$(HUGGINGFACE_MODEL) \
+		-p 8080:8080 \
+		-d embeddings
+
+teardown-embeddings:
+	@docker stop embeddings
+	@docker rm embeddings

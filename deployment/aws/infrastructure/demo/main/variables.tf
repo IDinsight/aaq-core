@@ -178,11 +178,12 @@ variable "jwt_secret_secret_name" {
   default     = ""
 }
 
-variable "content_access_secret_name" {
-  description = "value for the content access secret name"
+variable "user_credentials_secret_name" {
+  description = "value for the user credentials secret name"
   type        = string
   default     = ""
 }
+
 
 variable "whatsapp_token_secret_name" {
   description = "value for the whatsapp token secret name"
@@ -202,14 +203,19 @@ variable "account_id" {
   default     = ""
 }
 
-variable "open_ai_key_secret_name" {
+variable "openai_key_secret_name" {
   type        = string
-  description = "value for the open ai key secret name"
+  description = "value for the OpenAI API key secret name"
 }
 
-variable "question_answer_secret_name" {
+variable "gemini_key_secret_name" {
   type        = string
-  description = "value for the question answer secret name"
+  description = "value for the Gemini API key secret name"
+}
+
+variable "langfuse_keys_secret_name" {
+  type        = string
+  description = "value for the Langfuse keys secret name"
 }
 
 variable "whatsapp_verify_token_secret_name" {

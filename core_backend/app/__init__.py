@@ -12,18 +12,27 @@ from . import (
     admin,
     auth,
     contents,
+    key_management,
     question_answer,
+    question_dashboard,
+    tags,
     urgency_detection,
     urgency_rules,
     whatsapp_qa,
 )
-from .config import (
-    DOMAIN,
-)
+from .config import DOMAIN, LANGFUSE
 from .prometheus_middleware import PrometheusMiddleware
 from .utils import setup_logger
 
 logger = setup_logger()
+
+
+if LANGFUSE == "True":
+    logger.info("Setting up langfuse callbacks")
+    import litellm
+
+    litellm.success_callback = ["langfuse"]
+    litellm.failure_callback = ["langfuse"]
 
 
 def create_metrics_app() -> Callable:
@@ -39,16 +48,18 @@ def create_app() -> FastAPI:
     app.include_router(admin.routers.router)
     app.include_router(question_answer.router)
     app.include_router(contents.router)
+    app.include_router(question_dashboard.router)
     app.include_router(auth.router)
     app.include_router(whatsapp_qa.router)
+    app.include_router(key_management.router)
     app.include_router(urgency_detection.router)
     app.include_router(urgency_rules.router)
+    app.include_router(tags.router)
 
     origins = [
         f"http://{DOMAIN}",
         f"http://{DOMAIN}:3000",
         f"https://{DOMAIN}",
-        f"https://{DOMAIN}:3000",
     ]
     app.add_middleware(
         CORSMiddleware,

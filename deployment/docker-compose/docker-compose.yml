@@ -1,4 +1,3 @@
-version: "3"
 services:
   core_backend:
     image: idinsight/aaq-backend:latest
@@ -22,6 +21,7 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL}
+        NEXT_PUBLIC_GOOGLE_LOGIN_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_LOGIN_CLIENT_ID}
     command: >
       node server.js
     depends_on:
@@ -69,7 +69,21 @@ services:
     command: >
       /usr/local/bin/python server.py --port=5001 --models=base
     restart: always
-
+  embeddings:
+    image: idinsight/embeddings:latest
+    profiles:
+      - embeddings
+      - optional-components
+    build:
+      context: ../../optional_components/embeddings
+      dockerfile: Dockerfile
+    restart: always
+    env_file:
+      - .env
+    develop:
+      watch:
+        - action: rebuild
+          path: ../../optional_components/embeddings
 volumes:
   caddy_data:
   caddy_config:

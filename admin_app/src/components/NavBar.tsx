@@ -17,8 +17,10 @@ import * as React from "react";
 import { Layout } from "./Layout";
 const pages = [
   { title: "Manage Content", path: "/content" },
+  { title: "Urgency Rules", path: "/urgency-rules" },
   { title: "Playground", path: "/playground" },
-  // { title: "Dashboard", path: "/dashboard" },
+  { title: "Dashboard", path: "/dashboard" },
+  { title: "Integrations", path: "/integrations" },
 ];
 
 const settings = ["Logout"];
@@ -51,8 +53,8 @@ const Logo = () => {
         component="img"
         src={logowhite.src}
         sx={{
-          height: 30,
-          width: 180,
+          height: 36,
+          aspect_ratio: 1200 / 214,
           display: { xs: "none", md: "block" },
         }}
       />
@@ -160,7 +162,7 @@ const LargeScreenNavMenu = () => {
 };
 
 const UserDropdown = () => {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const router = useRouter();
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(
     null,
@@ -173,6 +175,7 @@ const UserDropdown = () => {
   const handleCloseUserMenu = () => {
     setAnchorElUser(null);
   };
+
   return (
     <Box>
       <Tooltip title="Open settings">
@@ -199,6 +202,9 @@ const UserDropdown = () => {
         open={Boolean(anchorElUser)}
         onClose={() => setAnchorElUser(null)}
       >
+        <MenuItem disabled>
+          <Typography textAlign="center">{user}</Typography>
+        </MenuItem>
         {settings.map((setting) => (
           <MenuItem key={setting} onClick={logout}>
             <Typography textAlign="center">{setting}</Typography>

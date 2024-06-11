@@ -1,9 +1,7 @@
 "use client";
-// To do
-// 3. Modal to add and save token
-// 5. QueryType to enum
 
 import { apiCalls } from "@/utils/api";
+import { Global, css } from "@emotion/react";
 import React, { useEffect, useRef, useState } from "react";
 
 import {
@@ -61,8 +59,42 @@ const Page = () => {
     console.log(response);
     const responseText = llmResponse
       ? llmResponse
-      : `No response. Reason: "${response.debug_info.reason}". See JSON for details.`;
+      : `No LLM response. Reason: "${response.debug_info.reason}". See <json> for details.`;
 
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      {
+        dateTime: new Date().toISOString(),
+        type: "response",
+        content: responseText,
+        json: response,
+      },
+    ]);
+  };
+
+  const processUrgencyDetection = (response: any) => {
+    const isUrgent: boolean = response.is_urgent;
+    const responseText =
+      isUrgent === null
+        ? `No response. Reason:  See <json> for details.`
+        : isUrgent
+        ? "Urgent 🚨"
+        : "Not Urgent 🟢";
+
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      {
+        dateTime: new Date().toISOString(),
+        type: "response",
+        content: responseText,
+        json: response,
+      },
+    ]);
+  };
+
+  const processNotOKResponse = (response: any) => {
+    const responseText = `Error: ${response.status}. See <json> for details.`;
+    console.error(responseText, response);
     setMessages((prevMessages) => [
       ...prevMessages,
       {
@@ -80,10 +112,16 @@ const Page = () => {
       {
         dateTime: new Date().toISOString(),
         type: "response",
-        content: "API call failed. See JSON for details.",
+        content: "API call failed. See <json> for details.",
         json: `{error: ${error.message}}`,
       },
     ]);
+  };
+
+  const queryTypeDisplayNameMapping = {
+    "embeddings-search": "Embedding Search",
+    "llm-response": "LLM Search",
+    "urgency-detection": "Urgency Detection",
   };
 
   const onSend = (queryText: string, queryType: QueryType) => {
@@ -93,26 +131,33 @@ const Page = () => {
 
     setLoading(true);
 
-    // TODO: Add loading component
-
     if (currApiKey === null || currApiKey === "") {
       setError("API Key not set. Please set the API key.");
       setLoading(false);
       return;
     } else {
+      const queryTypeDisplayName =
+        queryTypeDisplayNameMapping[queryType] || queryType;
       setMessages((prevMessages) => [
         ...prevMessages,
         {
           dateTime: new Date().toISOString(),
           type: "question",
-          content: queryText,
+          content: `${queryText}`,
+          queryType: `${queryTypeDisplayName}`,
         } as UserMessage,
       ]);
       if (queryType === "embeddings-search") {
         apiCalls
           .getEmbeddingsSearch(queryText, currApiKey)
           .then((response) => {
-            processEmbeddingsSearchResponse(response);
+            if (response.status === 200) {
+              processEmbeddingsSearchResponse(response);
+            } else {
+              setError("Embeddings search failed.");
+              processNotOKResponse(response);
+              console.error(response);
+            }
           })
           .catch((error: Error) => {
             setError("Embeddings search failed.");
@@ -126,10 +171,30 @@ const Page = () => {
         apiCalls
           .getLLMResponse(queryText, currApiKey)
           .then((response) => {
-            processLLMSearchResponse(response);
+            if (response.status === 200) {
+              processLLMSearchResponse(response);
+            } else {
+              setError("LLM response failed.");
+              processNotOKResponse(response);
+              console.error(response);
+            }
           })
           .catch((error: Error) => {
-            setError("LLM Response failed.");
+            setError("LLM response failed.");
+            processErrorMessage(error);
+            console.error(error);
+          })
+          .finally(() => {
+            setLoading(false);
+          });
+      } else if (queryType == "urgency-detection") {
+        apiCalls
+          .getUrgencyDetection(queryText, currApiKey)
+          .then((response) => {
+            processUrgencyDetection(response);
+          })
+          .catch((error: Error) => {
+            setError("Urgency Detection failed.");
             processErrorMessage(error);
             console.error(error);
           })
@@ -183,41 +248,50 @@ const Page = () => {
   }, []);
 
   return (
-    <Box
-      display="flex"
-      flexDirection="column"
-      alignItems="center"
-      bgcolor="white"
-      sx={{ height: "100vh", width: "100%", pb: 10 }}
-    >
-      <Box
-        mb={10}
-        sx={{
-          width: "100%",
-          maxWidth: "lg",
-          pb: 10,
-        }}
-      >
-        {messages.map((message, index) => (
-          <MessageBox key={index} {...message} />
-        ))}
-        {loading && <MessageSkeleton />}
-        <div ref={bottomRef} />
-      </Box>
-      <ErrorSnackBar message={error} onClose={handleErrorClose} />
-      <ApiKeyDialog
-        open={openDialog}
-        handleClose={handleDialogClose}
-        handleSave={handleSaveToken}
-        currApiKey={currApiKey}
+    <>
+      <Global
+        styles={css`
+          body {
+            background-color: white;
+          }
+        `}
       />
-      <Box sx={{ width: "100%", maxWidth: "lg", px: 2 }}>
-        <PersistentSearchBar
-          onSend={onSend}
-          openApiKeyDialog={handleDialogOpen}
+      <Box
+        display="flex"
+        flexDirection="column"
+        alignItems="center"
+        bgcolor="white"
+        sx={{ height: "100vh", width: "100%", pb: 10 }}
+      >
+        <Box
+          mb={10}
+          sx={{
+            width: "100%",
+            maxWidth: "lg",
+            pb: 10,
+          }}
+        >
+          {messages.map((message, index) => (
+            <MessageBox key={index} {...message} />
+          ))}
+          {loading && <MessageSkeleton />}
+          <div ref={bottomRef} />
+        </Box>
+        <ErrorSnackBar message={error} onClose={handleErrorClose} />
+        <ApiKeyDialog
+          open={openDialog}
+          handleClose={handleDialogClose}
+          handleSave={handleSaveToken}
+          currApiKey={currApiKey}
         />
+        <Box sx={{ width: "100%", maxWidth: "lg", px: 2 }}>
+          <PersistentSearchBar
+            onSend={onSend}
+            openApiKeyDialog={handleDialogOpen}
+          />
+        </Box>
       </Box>
-    </Box>
+    </>
   );
 };
 
