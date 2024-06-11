@@ -283,12 +283,3 @@ resource "aws_cloudwatch_log_group" "backend" {
   name = "/ecs/backend-task-${var.project_name}-${var.environment}"
   tags = merge({ Name = "backend-task-${var.project_name}-${var.environment}", Module = "Web" }, var.tags)
 }
-<<<<<<< HEAD
-
-resource "aws_cloudwatch_log_group" "caddy" {
-  name = "/ecs/caddy-task-${var.project_name}-${var.environment}"
-
-  tags = merge({ Name = "caddy-task-${var.project_name}-${var.environment}", Module = "Web" }, var.tags)
-}
-=======
->>>>>>> main
