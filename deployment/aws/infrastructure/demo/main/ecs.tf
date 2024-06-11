@@ -96,10 +96,6 @@ resource "aws_ecs_task_definition" "caddy_task" {
     image      = "caddy:2.7.6",
     memory     = 512,
     cpu        = 256,
-<<<<<<< HEAD
-=======
-
->>>>>>> main
     logConfiguration = {
       logDriver = "awslogs"
       options = {
