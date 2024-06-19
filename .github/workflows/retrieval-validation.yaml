@@ -33,6 +33,18 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
+
+      # litellm_proxy:
+      #   image: ghcr.io/berriai/litellm:main-v1.34.6
+      #   env:
+      #     OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      #   options: --name litellm_proxy
+      #   volumes:
+      #     # https://github.com/actions/runner/issues/2058
+      #     - /__w/aaq-core/aaq-core/deployment/docker-compose/litellm_proxy_config.yaml:/app/config.yaml
+      #   ports:
+      #     - 4000:4000
+
     environment: validation-mc
     steps:
       - name: Install dependencies
@@ -40,9 +52,24 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - uses: actions/setup-python@v4
         with:
           python-version: "3.10"
+
+      # - name: Stop LiteLLM Proxy server
+      #   # https://github.com/orgs/community/discussions/42127#discussioncomment-7591609
+      #   # Restart LiteLLM Proxy server after volumes have been checked out
+      #   uses: docker://docker
+      #   with:
+      #     args: docker stop litellm_proxy
+
+      - name: Start LiteLLM Proxy server
+        # https://github.com/orgs/community/discussions/42127#discussioncomment-7591609
+        # Restart LiteLLM Proxy server after volumes have been checked out
+        uses: docker://docker
+        with:
+          args: docker run -d -v ./deployment/docker-compose/litellm_proxy_config.yaml:/app/config.yaml -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} --name litellm_proxy ghcr.io/berriai/litellm:main-v1.34.6 --port 4000 --config /app/config.yaml
 
       - name: Configure aws credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -55,7 +82,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install -r core_backend/requirements.txt
-          python -m pip install -r core_backend/validation/requirements.txt
+          python -m pip install -r core_backend/validation/retrieval/requirements.txt
 
       - name: Run migration scripts
         run: |
@@ -63,11 +90,13 @@ jobs:
           export POSTGRES_HOST=postgres POSTGRES_USER=${{ env.POSTGRES_USER }} \
             POSTGRES_PASSWORD=${{ env.POSTGRES_PASSWORD }} POSTGRES_DB=${{ env.POSTGRES_DB }}
           python -m alembic upgrade head
+          python add_users_to_db.py
+
       - name: Run validation script
         env:
           N_TOP_CONTENT_FOR_SEARCH: 10
           PROMETHEUS_MULTIPROC_DIR: /tmp
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LITELLM_ENDPOINT: http://localhost:4000
           REPO: ${{ github.repository }}
           BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
           HASH: ${{ github.sha }}
@@ -77,7 +106,7 @@ jobs:
           POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
           POSTGRES_DB: ${{ env.POSTGRES_DB }}
         run: |
-          python -m pytest core_backend/validation/validate_retrieval.py \
+          python -m pytest core_backend/validation/retrieval/validate_retrieval.py \
             --validation_data_path \
               ${{ secrets.VALIDATION_DATA_S3_PATH }} \
             --content_data_path \
