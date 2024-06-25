@@ -16,7 +16,12 @@ model_list:
     litellm_params:
       model: gpt-4o
       api_key: "os.environ/OPENAI_API_KEY"
-      # model: gemini/gemini-1.5-pro-latest
+  - model_name: generate-response-gemini # <<<< TESTING
+    litellm_params:
+      model: gemini-1.5-pro
+      # TODO: we can have these set in env or hard-coded here.
+      vertex_project: "ask-a-question-421418"
+      vertex_location: "us-central1"
       # api_key: "os.environ/GEMINI_API_KEY"
       # safety_settings:
       #   - category: HARM_CATEGORY_HARASSMENT
