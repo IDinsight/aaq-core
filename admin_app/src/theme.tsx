@@ -46,7 +46,7 @@ const theme = createTheme({
     fontFamily: inter.style.fontFamily,
     h5: {
       fontWeight: 400,
-      color: "#001945",
+      color: "#001925",
     },
     subtitle1: {
       fontWeight: 600,
