@@ -1,0 +1,96 @@
+name: Deploy LiteLLM Proxy to GCP
+
+on:
+  push:
+    branches:
+      - main
+      - testing
+    paths:
+      - "deployment/docker-compose/litellm_proxy/**"
+      - "deployment/gcp/cloudbuild_litellm_proxy.yaml"
+      - ".github/workflows/deploy_gcp_litellm_proxy.yaml"
+  workflow_dispatch:
+
+jobs:
+  DeployLiteLLMProxyToGCP:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: "read"
+      id-token: "write"
+
+    environment: gcp-testing
+    # TODO: update Github env and change to github.ref_name
+
+    env:
+      RESOURCE_PREFIX: ${{ secrets.PROJECT_NAME }}-${{ (github.ref_name == 'main' && 'testing') || github.ref_name }}
+
+    steps:
+      - uses: "actions/checkout@v4"
+
+      - id: "auth"
+        name: "Authenticate to Google Cloud"
+        uses: "google-github-actions/auth@v2"
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          workload_identity_provider: projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ vars.POOL_ID }}/providers/${{ vars.PROVIDER_ID }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Configure Docker to use gcloud as a credential helper
+        run: |
+          gcloud auth configure-docker ${{ secrets.DOCKER_REGISTRY_DOMAIN}}
+
+      - name: Build and push LiteLLM Proxy image
+        working-directory: deployment/docker-compose/litellm_proxy
+        run: |
+          gcloud builds submit --config=../../gcp/cloudbuild_litellm_proxy.yaml \
+            --substitutions \
+              _RESOURCE_PREFIX=${{ env.RESOURCE_PREFIX }},_DOCKER_REGISTRY_DOMAIN=${{ secrets.DOCKER_REGISTRY_DOMAIN }}
+
+      - name: Deploy LiteLLM Proxy container
+        id: "compute-ssh"
+        uses: "google-github-actions/ssh-compute@v1"
+        env:
+          REPO: ${{ secrets.DOCKER_REGISTRY_DOMAIN }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.RESOURCE_PREFIX }}
+        with:
+          instance_name: "${{ secrets.DEPLOYMENT_INSTANCE_NAME }}"
+          zone: "${{ secrets.DEPLOYMENT_ZONE }}"
+          ssh_private_key: "${{ secrets.GCP_SSH_PRIVATE_KEY }}"
+          command: |
+            docker-credential-gcr configure-docker \
+              --registries ${{ secrets.DOCKER_REGISTRY_DOMAIN }}
+            docker pull \
+              ${{ env.REPO }}/litellm_proxy:latest
+            docker stop litellm_proxy
+            docker rm litellm_proxy
+            docker run -d \
+              --log-driver=gcplogs \
+              --restart always \
+              --network aaq-network \
+              --name litellm_proxy \
+              ${{ env.REPO }}/litellm_proxy:latest
+            docker system prune -f
+
+      - name: "Show Output"
+        run: |-
+          echo '${{ steps.compute-ssh.outputs.stdout }}'
+          echo '${{ steps.compute-ssh.outputs.stderr }}'
+
+      - name: Wait for Application to start
+        id: wait-for-app
+        run: sleep 1m
+        shell: bash
+
+      - name: Retrieve domain from Secret Manager
+        id: "secrets"
+        uses: "google-github-actions/get-secretmanager-secrets@v2"
+        with:
+          secrets: |-
+            domain:${{ secrets.GCP_PROJECT_ID }}/${{ env.RESOURCE_PREFIX }}-domain
+
+      - name: Check if deployment was successful
+        id: check-deployment
+        run: |
+          curl -f -X 'GET' \
+            'https://${{ steps.secrets.outputs.domain }}/api/healthcheck' \
+            -H 'accept: application/json'
