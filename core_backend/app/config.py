@@ -15,6 +15,8 @@ POSTGRES_DB = os.environ.get("POSTGRES_DB", "postgres")
 # LiteLLM proxy variables
 # Endpoint
 LITELLM_ENDPOINT = os.environ.get("LITELLM_ENDPOINT", "http://0.0.0.0:4000")
+
+## OpenAI
 # API Key. Required but just a dummy for now. The actual OPENAI_API_KEY is set
 # in the proxy container.
 LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY", "dummy-key")
@@ -24,9 +26,7 @@ LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY", "dummy-key")
 # for all of its endpoints.
 LITELLM_MODEL_EMBEDDING = os.environ.get("LITELLM_MODEL_EMBEDDING", "openai/embeddings")
 LITELLM_MODEL_DEFAULT = os.environ.get("LITELLM_MODEL_DEFAULT", "openai/default")
-LITELLM_MODEL_GENERATION = os.environ.get(
-    "LITELLM_MODEL_GENERATION", "openai/generate-response"
-)
+
 LITELLM_MODEL_LANGUAGE_DETECT = os.environ.get(
     "LITELLM_MODEL_LANGUAGE_DETECT", "openai/detect-language"
 )
@@ -43,6 +43,15 @@ LITELLM_MODEL_ALIGNSCORE = os.environ.get(
 )
 LITELLM_MODEL_URGENCY_DETECT = os.environ.get(
     "LITELLM_MODEL_URGENCY_DETECT", "openai/urgency-detection"
+)
+
+## Vertex AI
+# Note that since Vertex AI API authentication occurs with identity & iam 
+# management, and is handled directly on Compute Engine when the attached
+# service account has the correct permissions, nothing has to be stored
+# or downloaded here, as authorization happens at the network level.
+LITELLM_MODEL_GENERATION = os.environ.get(
+    "LITELLM_MODEL_GENERATION", "vertex_ai/gemini-1.5-pro"
 )
 
 # On/Off Topic variables
