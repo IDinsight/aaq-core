@@ -45,7 +45,7 @@ jobs:
         run: |
           gcloud builds submit --config=../../gcp/cloudbuild_litellm_proxy.yaml \
             --substitutions \
-              _RESOURCE_PREFIX=${{ env.RESOURCE_PREFIX }},_DOCKER_REGISTRY_DOMAIN=${{ secrets.DOCKER_REGISTRY_DOMAIN }}
+              _RESOURCE_PREFIX=${{ env.RESOURCE_PREFIX }},_DOCKER_REGISTRY_DOMAIN=${{ secrets.DOCKER_REGISTRY_DOMAIN }},_GCP_LOCATION=${{ vars.VERTEX_AI_LOCATION }}
 
       - name: Deploy LiteLLM Proxy container
         id: "compute-ssh"
