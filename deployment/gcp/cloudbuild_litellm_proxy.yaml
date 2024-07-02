@@ -7,12 +7,17 @@ steps:
         docker build \
           -t ${_DOCKER_REGISTRY_DOMAIN}/$PROJECT_ID/${_RESOURCE_PREFIX}/litellm_proxy:latest \
           --build-arg OPENAI_API_KEY=$$OPENAI_API_KEY \
+          --build-arg GCP_PROJECT_ID=$PROJECT_ID \
+          --build-arg GCP_LOCATION=$LOCATION \
+          --build-arg GCP_CREDENTIALS=$$GCP_CREDENTIALS \
           .
-    secretEnv: ["OPENAI_API_KEY"]
+    secretEnv: ["OPENAI_API_KEY", "GCP_CREDENTIALS"]
 availableSecrets:
   secretManager:
     - version_name: "projects/$PROJECT_ID/secrets/${_RESOURCE_PREFIX}-openai-api-key/versions/latest"
       env: OPENAI_API_KEY
+    - version_name: "projects/$PROJECT_ID/secrets/${_RESOURCE_PREFIX}-gcp-credential-json/versions/latest"
+      env: GCP_CREDENTIALS
 
 images:
   - "${_DOCKER_REGISTRY_DOMAIN}/$PROJECT_ID/${_RESOURCE_PREFIX}/litellm_proxy:latest"
