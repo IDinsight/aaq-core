@@ -1,4 +1,4 @@
-FROM ghcr.io/berriai/litellm:main-v1.34.6
+FROM ghcr.io/berriai/litellm:main-v1.41.3
 
 ARG OPENAI_API_KEY
 ENV OPENAI_API_KEY=$OPENAI_API_KEY
