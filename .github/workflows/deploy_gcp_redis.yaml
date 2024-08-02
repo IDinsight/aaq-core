@@ -66,13 +66,25 @@ jobs:
       - name: Redis Health Check
         id: redis-health-check
         run: |
-          timeout=60
-          while ! docker exec redis redis-cli ping; do
+          timeout=90  # Increase the timeout to give Redis more time to start
+          echo "Checking for Redis readiness..."
+          while true; do
+            docker ps | grep redis  # Check if Redis container is running
+            if [ $? -eq 0 ]; then
+              echo "Redis container is running, proceeding with health check..."
+              if docker exec redis redis-cli ping | grep -q PONG; then
+                echo "Redis is up and responding to ping."
+                break
+              else
+                echo "Redis is running but not responding to ping yet."
+              fi
+            else
+              echo "Redis container is not yet running."
+            fi
             sleep 1
             timeout=$((timeout - 1))
             if [ "$timeout" -le 0 ]; then
-              echo "Redis failed to start in time."
+              echo "Failed to start Redis within the timeout period."
               exit 1
             fi
           done
-          echo "Redis is up and running."
