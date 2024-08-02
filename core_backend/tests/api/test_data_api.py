@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core_backend.app.question_answer.models import (
     save_content_feedback_to_db,
-    save_query_response_error_to_db,
     save_query_response_to_db,
     save_response_feedback_to_db,
     save_user_query_to_db,
@@ -48,18 +47,22 @@ class MockDatetime:
 class TestContentDataAPI:
 
     async def test_content_extract(
-        self, client: TestClient, faq_contents: List[int]
+        self,
+        client: TestClient,
+        faq_contents: List[int],
+        api_key_user1: str,
+        api_key_user2: str,
     ) -> None:
 
         response = client.get(
             "/data-api/contents",
-            headers={"Authorization": "Bearer test_api_key"},
+            headers={"Authorization": f"Bearer {api_key_user1}"},
         )
         assert response.status_code == 200
         assert len(response.json()) == len(faq_contents)
         response = client.get(
             "/data-api/contents",
-            headers={"Authorization": "Bearer test_api_key_2"},
+            headers={"Authorization": f"Bearer {api_key_user2}"},
         )
         assert response.status_code == 200
         assert len(response.json()) == 0
@@ -104,12 +107,12 @@ class TestContentDataAPI:
         )
 
     async def test_content_extract_with_tags(
-        self, client: TestClient, faq_content_with_tags_user2: int
+        self, client: TestClient, faq_content_with_tags_user2: int, api_key_user2: str
     ) -> None:
 
         response = client.get(
             "/data-api/contents",
-            headers={"Authorization": "Bearer test_api_key_2"},
+            headers={"Authorization": f"Bearer {api_key_user2}"},
         )
         assert response.status_code == 200
         assert len(response.json()) == 1
@@ -118,19 +121,23 @@ class TestContentDataAPI:
 
 class TestUrgencyRulesDataAPI:
     async def test_urgency_rules_data_api(
-        self, client: TestClient, urgency_rules: int
+        self,
+        client: TestClient,
+        urgency_rules: int,
+        api_key_user1: str,
+        api_key_user2: str,
     ) -> None:
 
         response = client.get(
             "/data-api/urgency-rules",
-            headers={"Authorization": "Bearer test_api_key"},
+            headers={"Authorization": f"Bearer {api_key_user1}"},
         )
         assert response.status_code == 200
         assert len(response.json()) == urgency_rules
 
         response = client.get(
             "/data-api/urgency-rules",
-            headers={"Authorization": "Bearer test_api_key_2"},
+            headers={"Authorization": f"Bearer {api_key_user2}"},
         )
         assert response.status_code == 200
         assert len(response.json()) == 0
@@ -140,10 +147,11 @@ class TestUrgencyRulesDataAPI:
         client: TestClient,
         urgency_rules: int,
         urgency_rules_user2: int,
+        api_key_user2: str,
     ) -> None:
         response = client.get(
             "/data-api/urgency-rules",
-            headers={"Authorization": "Bearer test_api_key_2"},
+            headers={"Authorization": f"Bearer {api_key_user2}"},
         )
 
         assert response.status_code == 200
@@ -157,6 +165,7 @@ class TestUrgencyQueryDataAPI:
         monkeypatch: pytest.MonkeyPatch,
         asession: AsyncSession,
         urgency_rules: int,
+        user1: int,
     ) -> AsyncGenerator[None, None]:
         now = datetime.now(timezone.utc)
         dates = [now - relativedelta(days=x) for x in range(N_DAYS_HISTORY)]
@@ -168,7 +177,7 @@ class TestUrgencyQueryDataAPI:
             )
             urgency_query = UrgencyQuery(message_text=f"query {i}")
             urgency_query_db = await save_urgency_query_to_db(
-                1, "secret_key", urgency_query, asession
+                user1, "secret_key", urgency_query, asession
             )
             all_orm_objects.append(urgency_query_db)
             is_urgent = i % 2 == 0
@@ -195,6 +204,7 @@ class TestUrgencyQueryDataAPI:
         self,
         monkeypatch: pytest.MonkeyPatch,
         asession: AsyncSession,
+        user2: int,
     ) -> AsyncGenerator[int, None]:
 
         days_ago = random.randrange(N_DAYS_HISTORY)
@@ -204,7 +214,7 @@ class TestUrgencyQueryDataAPI:
         )
         urgency_query = UrgencyQuery(message_text="query")
         urgency_query_db = await save_urgency_query_to_db(
-            2, "secret_key", urgency_query, asession
+            user2, "secret_key", urgency_query, asession
         )
         yield days_ago
         await asession.delete(urgency_query_db)
@@ -213,12 +223,13 @@ class TestUrgencyQueryDataAPI:
     def test_urgency_query_data_api(
         self,
         user1_data: pytest.FixtureRequest,
+        api_key_user1: str,
         client: TestClient,
     ) -> None:
 
         response = client.get(
             "/data-api/urgency-queries",
-            headers={"Authorization": "Bearer test_api_key"},
+            headers={"Authorization": f"Bearer {api_key_user1}"},
             params={"start_date": "2021-01-01", "end_date": "2021-01-10"},
         )
         assert response.status_code == 200
@@ -233,6 +244,7 @@ class TestUrgencyQueryDataAPI:
         days_ago_end: int,
         client: TestClient,
         user1_data: pytest.FixtureRequest,
+        api_key_user1: str,
     ) -> None:
 
         start_date = datetime.now(timezone.utc) - relativedelta(
@@ -248,7 +260,7 @@ class TestUrgencyQueryDataAPI:
 
         response = client.get(
             "/data-api/urgency-queries",
-            headers={"Authorization": "Bearer test_api_key"},
+            headers={"Authorization": f"Bearer {api_key_user1}"},
             params={
                 "start_date": start_date.strftime(date_format),
                 "end_date": end_date.strftime(date_format),
@@ -291,6 +303,7 @@ class TestUrgencyQueryDataAPI:
         client: TestClient,
         user1_data: pytest.FixtureRequest,
         user2_data: int,
+        api_key_user2: str,
     ) -> None:
 
         start_date = datetime.now(timezone.utc) - relativedelta(
@@ -303,7 +316,7 @@ class TestUrgencyQueryDataAPI:
 
         response = client.get(
             "/data-api/urgency-queries",
-            headers={"Authorization": "Bearer test_api_key_2"},
+            headers={"Authorization": f"Bearer {api_key_user2}"},
             params={
                 "start_date": start_date.strftime(date_format),
                 "end_date": end_date.strftime(date_format),
@@ -324,6 +337,7 @@ class TestQueryDataAPI:
         monkeypatch: pytest.MonkeyPatch,
         asession: AsyncSession,
         faq_contents: List[int],
+        user1: int,
     ) -> AsyncGenerator[None, None]:
 
         now = datetime.now(timezone.utc)
@@ -338,7 +352,7 @@ class TestQueryDataAPI:
             )
             query = QueryBase(query_text=f"query {i}")
             query_db = await save_user_query_to_db(
-                user_id=1,
+                user_id=user1,
                 user_query=query,
                 asession=asession,
             )
@@ -387,10 +401,20 @@ class TestQueryDataAPI:
             else:
                 response_err = QueryResponseError(
                     query_id=query_db.query_id,
+                    llm_response=None,
+                    search_results={
+                        1: QuerySearchResult(
+                            title="title",
+                            text="text",
+                            id=faq_contents[0],
+                            distance=0.5,
+                        )
+                    },
+                    feedback_secret_key="test_secret_key",
                     error_message="error",
                     error_type=ErrorType.ALIGNMENT_TOO_LOW,
                 )
-                response_err_db = await save_query_response_error_to_db(
+                response_err_db = await save_query_response_to_db(
                     query_db, response_err, asession
                 )
                 all_orm_objects.append(response_err_db)
@@ -409,6 +433,7 @@ class TestQueryDataAPI:
         monkeypatch: pytest.MonkeyPatch,
         asession: AsyncSession,
         faq_contents: List[int],
+        user2: int,
     ) -> AsyncGenerator[int, None]:
         days_ago = random.randrange(N_DAYS_HISTORY)
         date = datetime.now(timezone.utc) - relativedelta(days=days_ago)
@@ -417,7 +442,7 @@ class TestQueryDataAPI:
         )
         query = QueryBase(query_text="query")
         query_db = await save_user_query_to_db(
-            user_id=2,
+            user_id=user2,
             user_query=query,
             asession=asession,
         )
@@ -429,10 +454,11 @@ class TestQueryDataAPI:
         self,
         user1_data: pytest.FixtureRequest,
         client: TestClient,
+        api_key_user1: str,
     ) -> None:
         response = client.get(
             "/data-api/queries",
-            headers={"Authorization": "Bearer test_api_key"},
+            headers={"Authorization": f"Bearer {api_key_user1}"},
             params={"start_date": "2021-01-01", "end_date": "2021-01-10"},
         )
         assert response.status_code == 200
@@ -447,6 +473,7 @@ class TestQueryDataAPI:
         days_ago_end: int,
         client: TestClient,
         user1_data: pytest.FixtureRequest,
+        api_key_user1: str,
     ) -> None:
         start_date = datetime.now(timezone.utc) - relativedelta(
             days=days_ago_start, seconds=2
@@ -458,7 +485,7 @@ class TestQueryDataAPI:
 
         response = client.get(
             "/data-api/queries",
-            headers={"Authorization": "Bearer test_api_key"},
+            headers={"Authorization": f"Bearer {api_key_user1}"},
             params={
                 "start_date": start_date.strftime(date_format),
                 "end_date": end_date.strftime(date_format),
@@ -504,6 +531,7 @@ class TestQueryDataAPI:
         client: TestClient,
         user1_data: pytest.FixtureRequest,
         user2_data: int,
+        api_key_user2: str,
     ) -> None:
         start_date = datetime.now(timezone.utc) - relativedelta(
             days=days_ago_start, seconds=2
@@ -515,7 +543,7 @@ class TestQueryDataAPI:
 
         response = client.get(
             "/data-api/queries",
-            headers={"Authorization": "Bearer test_api_key_2"},
+            headers={"Authorization": f"Bearer {api_key_user2}"},
             params={
                 "start_date": start_date.strftime(date_format),
                 "end_date": end_date.strftime(date_format),
