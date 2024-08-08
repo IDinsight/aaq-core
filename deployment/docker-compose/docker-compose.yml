@@ -8,7 +8,11 @@ services:
       /bin/sh startup.sh
     restart: always
     env_file:
-      - .env
+      - .common.env
+      - .core_backend.env
+    environment:
+      - REDIS_HOST=redis://redis:6379
+      - LITELLM_ENDPOINT=http://litellm_proxy:4000
     develop:
       watch:
         - action: rebuild
@@ -27,8 +31,6 @@ services:
     depends_on:
       - core_backend
     restart: always
-    env_file:
-      - .env
     develop:
       watch:
         - action: rebuild
@@ -46,13 +48,13 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     env_file:
-      - .env
+      - .common.env
 
   litellm_proxy:
     image: ghcr.io/berriai/litellm:main-v1.40.10
     restart: always
     env_file:
-      - .env
+      - .litellm_proxy.env
     volumes:
       - ./litellm_proxy_config.yaml:/app/config.yaml
       - ./.gcp_credentials.json:/app/credentials.json
@@ -80,7 +82,7 @@ services:
       dockerfile: Dockerfile
     restart: always
     env_file:
-      - .env
+      - .core_backend.env
     develop:
       watch:
         - action: rebuild
@@ -90,6 +92,7 @@ services:
     ports:
       - "6380:6379"
     restart: always
+
 volumes:
   caddy_data:
   caddy_config:

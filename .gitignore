@@ -1,5 +1,5 @@
 # Deployment
-.env*
+.*env*
 **/data/certbot/
 **/data/nginx/app.conf
 
