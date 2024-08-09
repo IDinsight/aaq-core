@@ -94,7 +94,7 @@ const ContentsTable = ({
   rowsPerPage,
 }: {
   rows: RowDataType[];
-  onClick: () => void;
+  onClick: (content_id: number) => void;
   rowsPerPage: number;
 }) => {
   const [itemsToDisplay, setItemsToDisplay] = useState<RowDataType[]>([]);
@@ -106,12 +106,20 @@ const ContentsTable = ({
     // if the last quarter is greater than the third quarter
     // then the trend is increasing
     const queryLength = queryCount.length;
-    const lastQuarterValue = queryCount
-      .slice(Math.floor((queryLength / 4) * 3), queryLength)
-      .reduce((a, b) => a + b, 0);
-    const thirdQuarterValue = queryCount
-      .slice(Math.floor((queryLength / 4) * 2), Math.floor((queryLength / 4) * 3))
-      .reduce((a, b) => a + b, 0);
+
+    const lastQuarter = queryCount.slice(
+      Math.floor((queryLength / 4) * 3),
+      queryLength,
+    );
+    const lastQuarterValue =
+      lastQuarter.reduce((a, b) => a + b, 0) / lastQuarter.length;
+
+    const thirdQuarter = queryCount.slice(
+      Math.floor((queryLength / 4) * 2),
+      Math.floor((queryLength / 4) * 3),
+    );
+    const thirdQuarterValue =
+      thirdQuarter.reduce((a, b) => a + b, 0) / thirdQuarter.length;
 
     return (lastQuarterValue - thirdQuarterValue) / thirdQuarterValue;
   };
@@ -248,14 +256,14 @@ const ContentsTable = ({
         </Grid>
       </Grid>
 
-      {itemsToDisplay.map((row, id) => (
+      {itemsToDisplay.map((row) => (
         <Grid
-          key={id}
           container
+          key={row.id}
           spacing={2}
           md={14}
           columns={14}
-          onClick={onClick}
+          onClick={() => onClick(row.id)}
           sx={{
             border: 1,
             borderTop: 0,
