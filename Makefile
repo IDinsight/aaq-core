@@ -32,6 +32,8 @@ setup-dev: setup-db setup-redis add-users-to-db setup-llm-proxy
 teardown-dev: teardown-db teardown-redis teardown-llm-proxy
 
 ## Helper targets
+guard-%:
+	@if [ -z '${${*}}' ]; then echo 'ERROR: environment variable $* not set' && exit 1; fi
 
 # Add users to db
 add-users-to-db:
@@ -69,7 +71,7 @@ make teardown-redis:
 
 
 # Dev LiteLLM Proxy server
-setup-llm-proxy:
+setup-llm-proxy: guard-OPENAI_API_KEY guard-CUSTOM_EMBEDDINGS_API_KEY guard-CUSTOM_EMBEDDINGS_ENDPOINT guard-VERTEXAI_PROJECT guard-VERTEXAI_LOCATION
 	-@docker stop litellm-proxy
 	-@docker rm litellm-proxy
 	@docker system prune -f
@@ -103,7 +105,8 @@ build-embeddings-arm:
 		-t text-embeddings-inference-arm
 	@cd ..
 	@rm -rf text-embeddings-inference
-setup-embeddings-arm:
+
+setup-embeddings-arm: guard-HUGGINGFACE_MODEL guard-CUSTOM_EMBEDDINGS_API_KEY
 	-@docker stop huggingface-embeddings
 	-@docker rm huggingface-embeddings
 	@docker system prune -f
@@ -116,7 +119,7 @@ setup-embeddings-arm:
         --model-id $(HUGGINGFACE_MODEL) \
         --api-key $(CUSTOM_EMBEDDINGS_API_KEY)
 
-setup-embeddings:
+setup-embeddings: guard-HUGGINGFACE_MODEL guard-CUSTOM_EMBEDDINGS_API_KEY
 	-@docker stop huggingface-embeddings
 	-@docker rm huggingface-embeddings
 	@docker system prune -f
